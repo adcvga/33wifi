@@ -1,0 +1,232 @@
+<title>3WiFi: Описание API</title>
+
+<head>
+</head>
+
+<body>
+<table><tr><td align=center>
+<h2>Описание API</h2>
+Сервис предоставляет доступ к базе данных через API.<br>
+Ниже описан процесс отправки запроса, а так же доступные методы.<br><br>
+<span style="text-align: left; float: left">
+<br>
+
+<p>Все API запросы отправляются по следующему URI: <tt>/api/%method%</tt>, где <b>method</b> - название API-метода.</p>
+<p>Различные методы могут принимать данные в разном формате. Большая часть методов использует API-ключи для доступа к функциям.</p>
+<p>Все методы возвращают результат выполнения <b>result</b>, который равен <b>true</b> в случае успеха, либо <b>false</b> в случае неудачи. В последнем случае также возвращается параметр <b>error</b> с описанием возникшей ошибки.</p>
+
+<h3>Реализованные методы API</h3>
+<table class="st1">
+<col width="8%">
+<col width="16%">
+<col width="16%">
+<col width="30%">
+<col width="30%">
+<tr>
+	<th rowspan="2">Метод</th>
+	<th rowspan="2">Описание</th>
+	<th colspan="2">Входные данные</th>
+	<th rowspan="2">Выходные данные</th>
+</tr>
+<tr>
+	<th>Тип данных</th>
+	<th>Параметры</th>
+</tr>
+
+<tr>
+	<td rowspan="5"><b>apikeys</b></td>
+	<td rowspan="5">Получает API-ключи пользователя (и опционально генерирует их)</td>
+	<td rowspan="5" style="text-align: left">
+		POST (форма)<br>
+		POST (JSON-объект)</td>
+	<td style="text-align: left">
+		string <b>login</b> - логин пользователя</td>
+	<td rowspan="2" style="text-align: left">
+		object <b>profile</b> - данные профиля пользователя: <b>nick</b> - никнейм, <b>regdate</b> - дата регистрации, <b>level</b> - уровень доступа</td>
+</tr>
+<tr>
+	<td style="text-align: left">
+		string <b>password</b> - пароль пользователя</td>
+</tr>
+<tr>
+	<td style="text-align: left">
+		bool <b>genread</b> - генерировать ключ на чтение при его отсутствии (опционально)</td>
+	<td rowspan="2" style="text-align: left">
+		array <b>data</b> - массив API-ключей, содержащий записи с полями <b>key</b> - ключ и <b>access</b> - права доступа для этого ключа (либо <b>read</b> - на чтение, либо <b>write</b> - на запись)</td>
+</tr>
+<tr>
+	<td style="text-align: left">
+		bool <b>genwrite</b> - генерировать ключ на запись при его отсутствии (опционально)</td>
+</tr>
+<tr>
+	<td colspan="2" style="text-align: left">
+		<p><b>Примеры:</b></p>
+		<tt>POST /api/apikeys<br>
+		Content-Type: application/x-www-form-urlencoded; charset=UTF-8<br>
+		<br>
+		login=user123&amp;password=pass123</tt><hr>
+		<tt>POST /api/apikeys<br>
+		Content-Type: application/json<br>
+		<br>
+		{"login": "user123", "password": "pass123"}</tt><hr>
+		<p><b>Ответ:</b></p>
+		<tt>{"result": true, "profile": {"nick": "Anonymous", "regdate": "2015-12-13 12:00:00", "level": 1}, "data": [{"key": "0011223344", "access": "read"}, {"key": "5566778899", "access": "write"}]}</tt></td>
+</tr>
+
+<tr>
+	<td rowspan="5"><b>apiquery</b></td>
+	<td rowspan="5">Запрашивает точки доступа из базы (точное совпадение с BSSID и/или ESSID)</td>
+	<td rowspan="5" style="text-align: left">
+		GET (запрос)<br>
+		POST (форма)<br>
+		POST (JSON-объект)</td>
+	<td style="text-align: left">
+		string <b>key</b> - API-ключ с правами на чтение</td>
+	<td rowspan="4" style="text-align: left">
+		array <b>data</b> - массив найденных данных, ключи массива содержат либо "BSSID", либо пару "BSSID|ESSID", в зависимости от того, что было запрошено; каждая запись в массиве содержит в себе ещё один массив соответствий со следующими параметрами: <b>time</b> - дата и время загрузки записи в базу, <b>bssid</b> - BSSID, <b>essid</b> - ESSID, <b>sec</b> - тип защиты, <b>key</b> - ключ сети, <b>wps</b> - WPS пин код, <b>lat</b> - широта, <b>lon</b> - долгота</td>
+</tr>
+<tr>
+	<td style="text-align: left">
+		array <b>bssid</b> - массив BSSID точек доступа</td>
+</tr>
+<tr>
+	<td style="text-align: left">
+		array <b>essid</b> - массив ESSID точек доступа (опционально), если указан - должен быть соразмерен с массивом BSSID и соответствовать записям в нём</td>
+</tr>
+<tr>
+	<td style="text-align: left">
+		bool <b>sens</b> - учитывать регистр символов ESSID (опционально)</td>
+</tr>
+<tr>
+	<td colspan="2" style="text-align: left">
+		<p><b>Примеры (запрос одной точки):</b></p>
+		<tt>GET /api/apiquery?key=001122334455&amp;bssid=01:23:45:67:89:AB</tt><hr>
+		<tt>POST /api/apiquery<br>
+		Content-Type: application/json<br>
+		<br>
+		{"key": "001122334455", "bssid": "01:23:45:67:89:AB"}</tt><hr>
+		<p><b>Ответ:</b></p>
+		<tt>{"result": true, "data": {"01:23:45:67:89:AB": [{"time": "2017-04-09 21:00:00", "bssid": "01:23:45:67:89:AB", "essid": "Wi-Fi AP", "sec": "WPA2", "key": "wifipass", "wps": "12345670", "lat": 55.76, "lon": 37.64}]}}</tt>
+		<p><b>Примеры (запрос нескольких точек):</b></p>
+		<tt>POST /api/apiquery<br>
+		Content-Type: application/json<br>
+		<br>
+		{"key": "001122334455", "bssid": ["11:22:33:44:55:66", "77:88:99:AA:BB:CC"]}</tt><hr>
+		<p><b>Ответ:</b></p>
+		<tt>{"result": true, "data": {"11:22:33:44:55:66": [{"time": "2017-04-09 21:00:00", "bssid": "11:22:33:44:55:66", "essid": "Wi-Fi AP 1", "sec": "WPA2", "key": "wifipass", "wps": "12345670", "lat": 55.76, "lon": 37.64}], "77:88:99:AA:BB:CC": [{"time": "2017-04-09 21:00:00", "bssid": "77:88:99:AA:BB:CC", "essid": "Wi-Fi AP 2", "sec": "WPA2", "key": "wifipass", "wps": "12345670", "lat": 55.76, "lon": 37.64}]}}</tt></td>
+</tr>
+
+<tr>
+	<td rowspan="3"><b>apiwps</b></td>
+	<td rowspan="3">Генерирует WPS PIN коды на основе BSSID и данных из базы</td>
+	<td rowspan="3" style="text-align: left">
+		GET (запрос)<br>
+		POST (форма)<br>
+		POST (JSON-объект)</td>
+	<td style="text-align: left">
+		string <b>key</b> - API-ключ с правами на чтение</td>
+	<td rowspan="2" style="text-align: left">
+		array <b>data</b> - массив найденных данных, ключи массива содержат "BSSID"; каждая запись в массиве содержит в себе ещё один массив <b>scores</b> со следующими параметрами: <b>name</b> - название алгоритма генерации пин кода, <b>value</b> - значение пин кода, <b>score</b> - вероятность (значение от 0 до 1)</td>
+</tr>
+<tr>
+	<td style="text-align: left">
+		array <b>bssid</b> - массив BSSID точек доступа</td>
+</tr>
+<tr>
+	<td colspan="2" style="text-align: left">
+		<p><b>Примеры (единичный запрос):</b></p>
+		<tt>GET /api/apiwps?key=001122334455&amp;bssid=01:23:45:67:89:AB</tt><hr>
+		<tt>POST /api/apiwps<br>
+		Content-Type: application/json<br>
+		<br>
+		{"key": "001122334455", "bssid": "01:23:45:67:89:AB"}</tt><hr>
+		<p><b>Ответ:</b></p>
+		<tt>{"result": true, "data": {"01:23:45:67:89:AB": {"scores": [{"name": "Static PIN", "value": "12345670", "score": 0.75}]}}}</tt>
+		<p><b>Примеры (мульти-запрос):</b></p>
+		<tt>POST /api/apiwps<br>
+		Content-Type: application/json<br>
+		<br>
+		{"key": "001122334455", "bssid": ["11:22:33:44:55:66", "77:88:99:AA:BB:CC"]}</tt><hr>
+		<p><b>Ответ:</b></p>
+		<tt>{"result": true, "data": {"11:22:33:44:55:66": {"scores": [{"name": "Static PIN", "value": "12345670", "score": 0.75}]}, "77:88:99:AA:BB:CC": {"scores": [{"name": "Static PIN", "value": "12345670", "score": 0.75}]}}}</tt></td>
+</tr>
+
+<tr>
+	<td rowspan="4"><b>apidev</b></td>
+	<td rowspan="4">Определяет модели устройств на основе BSSID и похожих устройств в базе</td>
+	<td rowspan="4" style="text-align: left">
+		GET (запрос)<br>
+		POST (форма)<br>
+		POST (JSON-объект)</td>
+	<td style="text-align: left">
+		string <b>key</b> - API-ключ с правами на чтение</td>
+	<td rowspan="3" style="text-align: left">
+		array <b>data</b> - массив найденных данных, ключи массива содержат "BSSID"; каждая запись представляет из себя ещё один массив со следующими параметрами: <b>name</b> - название устройства, <b>score</b> - вероятность (значение от 0 до 1), <b>count</b> - кол-во таких же устройств в базе</td>
+</tr>
+<tr>
+	<td style="text-align: left">
+		array <b>bssid</b> - массив BSSID точек доступа</td>
+</tr>
+<tr>
+	<td style="text-align: left">
+		bool <b>nocli</b> - исключать Wi-Fi клиенты из определения (по умолчанию включено)</td>
+</tr>
+<tr>
+	<td colspan="2" style="text-align: left">
+		<p><b>Примеры (единичный запрос):</b></p>
+		<tt>GET /api/apidev?key=001122334455&amp;bssid=01:23:45:67:89:AB</tt><hr>
+		<tt>POST /api/apidev<br>
+		Content-Type: application/json<br>
+		<br>
+		{"key": "001122334455", "bssid": "01:23:45:67:89:AB"}</tt><hr>
+		<p><b>Ответ:</b></p>
+		<tt>{"result": true, "data": {"01:23:45:67:89:AB": [{"name": "Router Model 1", "score": 0.9, "count": 2000}, {"name": "Router Model 2", "score": 0.75, "count": 500}, {"name": "Router Model 3", "score": 0.4, "count": 100}]}}</tt>
+		<p><b>Примеры (мульти-запрос):</b></p>
+		<tt>POST /api/apidev<br>
+		Content-Type: application/json<br>
+		<br>
+		{"key": "001122334455", "bssid": ["11:22:33:44:55:66", "77:88:99:AA:BB:CC"]}</tt><hr>
+		<p><b>Ответ:</b></p>
+		<tt>{"result": true, "data": {"11:22:33:44:55:66": [{"name": "Router Model 1", "score": 0.9, "count": 2000}, {"name": "Router Model 2", "score": 0.75, "count": 500}, {"name": "Router Model 3", "score": 0.4, "count": 100}], "77:88:99:AA:BB:CC": [{"name": "Router Model 4", "score": 0.75, "count": 2000}, {"name": "Router Model 5", "score": 0.6, "count": 500}, {"name": "Router Model 6", "score": 0.2, "count": 100}]}}</tt></td>
+</tr>
+
+<tr>
+	<td rowspan="5"><b>apiranges</b></td>
+	<td rowspan="5">Получает список диапазонов по широте, долготе и радиусу</td>
+	<td rowspan="5" style="text-align: left">
+		GET (запрос)<br>
+		POST (форма)<br>
+		POST (JSON-объект)</td>
+	<td style="text-align: left">
+		string <b>key</b> - API-ключ с правами на чтение</td>
+	<td rowspan="4" style="text-align: left">
+		array <b>data</b> - массив найденных данных; каждая запись в массиве содержит параметры: <b>range</b> - IP диапазон, <b>netname</b> - название сети, <b>descr</b> - описание диапазона, <b>country</b> - двухсимвольный код страны</td>
+</tr>
+<tr>
+	<td style="text-align: left">
+		float <b>lat</b> - широта (от -90 до 90)</td>
+</tr>
+<tr>
+	<td style="text-align: left">
+		float <b>lon</b> - долгота (от -180 до 180)</td>
+</tr>
+<tr>
+	<td style="text-align: left">
+		float <b>rad</b> - радиус (от 0.001 до 25)</td>
+</tr>
+<tr>
+	<td colspan="2" style="text-align: left">
+		<p><b>Примеры (единичный запрос):</b></p>
+		<tt>GET /api/apiranges?key=001122334455&amp;lat=%var_lat%&amp;lon=%var_lon%&amp;rad=%var_rad%</tt><hr>
+		<tt>POST /api/apiranges<br>
+		Content-Type: application/json<br>
+		<br>
+		{"key": "001122334455", "lat": %var_lat%, "lon": %var_lon%, "rad": %var_rad%}</tt><hr>
+		<p><b>Ответ:</b></p>
+		<tt>{"result": true, "data": [{"range": "192.168.0.0/16", "netname": "", "descr": "Local IP range", "country": ""}]}</tt></td>
+</tr>
+</table>
+
+</span>
+</td></tr></table>
+</body>

@@ -1,0 +1,113 @@
+services:
+  db:
+    image: mysql
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --sql_mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: 3wifi
+      MYSQL_USER: 3wifi
+      MYSQL_PASSWORD: 123456
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d
+
+  php-cli-update:
+    #    user: "root:root"
+    build:
+      dockerfile: ./code/Dockerfile-update
+    restart: always
+    entrypoint: [ "bash", "-c", "/usr/local/bin/php /app/3wifid.php uploads" ]
+    environment:
+      - 3WIFI_DIR:/app/
+    volumes:
+      - uploads:/app/uploads:rw
+    depends_on:
+      - db
+
+  php-cli-finalize:
+    #    user: "root:root"
+    build:
+      dockerfile: ./code/Dockerfile-update
+    restart: always
+    entrypoint: [ "bash", "-c", "/usr/local/bin/php /app/3wifid.php finalize" ]
+    environment:
+      - 3WIFI_DIR:/app/
+    volumes:
+      - uploads:/app/uploads:rw
+    depends_on:
+      - db
+
+  php-cli-geolocate:
+    #    user: "root:root"
+    build:
+      dockerfile: ./code/Dockerfile-update
+    restart: always
+    entrypoint: [ "bash", "-c", "/usr/local/bin/php /app/3wifid.php geolocate" ]
+    environment:
+      - 3WIFI_DIR:/app/
+    volumes:
+      - uploads:/app/uploads:rw
+    depends_on:
+      - db
+
+  php-cli-stats:
+    #    user: "root:root"
+    build:
+      dockerfile: ./code/Dockerfile-update
+    restart: always
+    entrypoint: [ "bash", "-c", "/usr/local/bin/php /app/3wifid.php stats" ]
+    environment:
+      - 3WIFI_DIR:/app/
+    volumes:
+      - uploads:/app/uploads:rw
+    depends_on:
+      - db
+
+  php-cli-memory:
+    #    user: "root:root"
+    build:
+      dockerfile: ./code/Dockerfile-update
+    restart: always
+    entrypoint: [ "bash", "-c", "/usr/local/bin/php /app/3wifid.php memory" ]
+    environment:
+      - 3WIFI_DIR:/app/
+    volumes:
+      - uploads:/app/uploads:rw
+    depends_on:
+      - db
+
+  php-nginx-site:
+    #    user: "root:root"
+    build:
+      dockerfile: ./code/Dockerfile-site
+    # run crond as main process of container
+    volumes:
+      - ./etc/site.ini:/usr/local/etc/php/conf.d/site.ini
+      - uploads:/var/www/3wifi/uploads:rw
+    restart: always
+    ports:
+      - "80:80"
+    command:
+      - chmod 777 -R /var/www/3wifi/uploads
+    depends_on:
+      - db
+
+  alpine-cron-cleaner:
+    build:
+      dockerfile: ./code/Dockerfile-cleaner
+    restart: always
+    volumes:
+      - uploads:/app/uploads:rw
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+
+volumes:
+  uploads:

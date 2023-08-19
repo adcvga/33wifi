@@ -1,0 +1,468 @@
+<html>
+<head>
+<title>%title%</title>
+<meta http-equiv=Content-Type content="text/html;charset=UTF-8">
+<meta name="keywords" content="3wifi, wifi, router, scan, Router Scan, access point, map, internet, free"/>
+<link rel=stylesheet href="%theme_css%" type="text/css">
+<style type="text/css">
+body { margin: 0px }
+</style>
+<script src="js/jquery-2.1.4.min.js"></script>
+<script type="text/javascript">
+function isMobile() 
+{ 
+	if (navigator.userAgent.match(/Android/i)
+	|| navigator.userAgent.match(/webOS/i)
+	|| navigator.userAgent.match(/iPhone/i)
+	|| navigator.userAgent.match(/iPad/i)
+	|| navigator.userAgent.match(/iPod/i)
+	|| navigator.userAgent.match(/BlackBerry/i)
+	|| navigator.userAgent.match(/Windows Phone/i)
+	|| navigator.userAgent.match(/Mobile/i))
+	{
+		return true;
+	}
+	if (window.innerWidth <= 800 && window.innerHeight <= 600)
+	{
+		return true;
+	}
+	return (('ontouchstart' in window) ||
+		(navigator.maxTouchPoints > 0) ||
+		(navigator.msMaxTouchPoints > 0));
+}
+
+function errorStr(error)
+{
+	switch (error)
+	{
+		case 'database':
+		return '%l10n_err_database%';
+		case 'loggedin':
+		return '%l10n_err_loggedin%';
+		case 'unauthorized':
+		return '%l10n_err_unauthorized%';
+		case 'loginfail':
+		return '%l10n_err_loginfail%';
+		case 'form':
+		return '%l10n_err_form%';
+		case 'invite':
+		return '%l10n_err_invite%';
+		case 'login':
+		return '%l10n_err_login%';
+		case 'nick':
+		return '%l10n_err_nick%';
+		case 'password':
+		return '%l10n_err_password%';
+		case 'lowlevel':
+		return '%l10n_err_lowlevel%';
+		case 'limit':
+		return '%l10n_err_limit%';
+		case 'token':
+		return '%l10n_err_token%';
+		case 'notfound':
+		return '%l10n_err_notfound%';
+		case 'cooldown':
+		return '%l10n_err_wait%';
+		default:
+		return '%l10n_err_unknown%';
+	}
+}
+function banReasonStr(error)
+{
+	if (error in BanReasons)
+		return BanReasons[error];
+	else
+		return '%l10n_err_unknown%';
+}
+function encodeHTML(str, spaces)
+{
+	str = $('<div>').text(str).html();
+	if (spaces) str = str.replace(/ /g, '&nbsp;');
+	return str;
+}
+function loadForm(frm, callback)
+{
+	if ($.trim($(frm).html()) != '')
+	{
+		callback();
+		return;
+	}
+	switch (frm)
+	{
+		case '#win_login':
+		case '#win_reg':
+		case '#win_newpass':
+		case '#win_wait':
+		$(frm).load('?fetch=' + frm.substr(1), function(response, status, xhr)
+		{
+			if (status == "error")
+			{
+				$(frm).html('');
+				return false;
+			}
+			callback();
+		});
+		break;
+	}
+}
+function showModal(frm)
+{
+	loadForm(frm, function()
+	{
+		$('#win_login').css({left: '-9999px'});
+		$('#win_reg').css({left: '-9999px'});
+		$('#win_newpass').css({left: '-9999px'});
+		$('#win_wait').css({left: '-9999px'});
+		if (frm == '#win_wait')
+		{
+			$(frm).css({left: '0'});
+			$(frm).css({top: '0'});
+			$(frm).css({width: '100%'});
+			$(frm).css({height: '100%'});
+			wait_sec = %var_wait%;
+			timeoutWaitSec();
+		}
+		else
+		{
+			$(frm).css({left: '50%'});
+			$(frm).css({top: '50%'});
+		}
+		$('.modal').show();
+		$('.modal').animate({opacity: 1}, 250);
+	});
+}
+function hideModal()
+{
+	$('.modal').animate({opacity: 0}, 250, function() { $('.modal').hide() });
+}
+function showFrm(frm)
+{
+	loadForm(frm, function()
+	{
+		var frm2 = (frm == '#win_login' ? '#win_reg' : '#win_login')
+		switch (Math.round(Math.random()*3))
+		{
+			case 0: // right to left
+			$(frm).css({left: '150%'});
+			$(frm).css({top: '50%'});
+			$(frm2).animate({left: '-50%'}, 500);
+			$(frm).animate({left: '50%'}, 500);
+			break;
+			case 1: // left to right
+			$(frm).css({left: '-50%'});
+			$(frm).css({top: '50%'});
+			$(frm2).animate({left: '150%'}, 500);
+			$(frm).animate({left: '50%'}, 500);
+			break;
+			case 2: // bottom to top
+			$(frm).css({left: '50%'});
+			$(frm).css({top: '150%'});
+			$(frm2).animate({top: '-50%'}, 500);
+			$(frm).animate({top: '50%'}, 500);
+			break;
+			case 3: // top to bottom
+			$(frm).css({left: '50%'});
+			$(frm).css({top: '-50%'});
+			$(frm2).animate({top: '150%'}, 500);
+			$(frm).animate({top: '50%'}, 500);
+			break;
+		}
+	});
+}
+function doLogin()
+{
+	var formdata = $('#frm_login').serialize();
+	$('#frm_login :input').prop('disabled', true);
+	$('#loginstat').html('<img src="img/loading.gif">');
+	$.post('user.php?a=login', formdata, function(json)
+	{
+		if (json.result)
+		{
+			$('#loginstat').html('<img src="img/ok.png" style="position: relative; top: 3px"> %l10n_login_ok%');
+			setTimeout($('#stayhere').prop('checked') ? (typeof refreshLocation == "function" ? 'refreshLocation();' : 'window.location.reload();') : 'window.location.href = \'user\';', 1000);
+		}
+		else
+		{
+			var errstr = (typeof json.error == 'string' ? json.error : '');
+			var err = '';
+			if (errstr == 'lowlevel')
+			{
+				err = '%l10n_err_banned%';
+				if (json.inherited)
+					err += banReasonStr('inherit');
+				err += banReasonStr(json.reason);
+			}
+			else
+			{
+				err = errorStr(errstr);
+			}
+			$('#loginstat').html('<img src="img/no.png" style="position: relative; top: 3px"> ' + err);
+			$('#frm_login :input').prop('disabled', false);
+		}
+	});
+}
+function doLogout()
+{
+	var onFail = function(jqXHR, textStatus, errorThrown)
+	{
+		alert('%l10n_err_data%');
+	};
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return;
+		} else {
+			var data = '';
+			data += '&token=' + encodeURIComponent(json.token);
+			$.get('user.php?a=logout' + data, function(json)
+			{
+				window.location.href = 'home';
+			});
+		}
+	}).fail(onFail);
+}
+function doReg()
+{
+	var formdata = $('#frm_reg').serialize();
+	$('#frm_reg :input').prop('disabled', true);
+	$('#regstat').html('<img src="img/loading.gif">');
+	$.post('user.php?a=reg', formdata, function(json)
+	{
+		if (json.result)
+		{
+			$('#checkinv').empty();
+			$('#regstat').html('<img src="img/ok.png" style="position: relative; top: 3px"> %l10n_reg_ok%');
+			setTimeout('window.location.href = \'user\';', 2000);
+		}
+		else
+		{
+			var errstr = (typeof json.error == 'string' ? json.error : '');
+			$('#regstat').html('<img src="img/no.png" style="position: relative; top: 3px"> ' + errorStr(errstr));
+			if (errstr == 'invite') $('#checkinv').html('<img src="img/no.png">');
+			$('#frm_reg :input').prop('disabled', false);
+		}
+	});
+}
+function doReturnView()
+{
+	var onFail = function(jqXHR, textStatus, errorThrown)
+	{
+		alert('%l10n_err_data%');
+	};
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return false;
+		} else {
+			var postdata = '';
+			postdata += 'token=' + encodeURIComponent(json.token);
+			postdata += '&uid=0';
+			postdata += '&view=0';
+			$.post('user.php?a=setuser', postdata, function(json)
+			{
+				if (!json.result)
+				{
+					alert(errorStr(json.error));
+				}
+				else
+				{
+					window.location.reload();
+				}
+				return false;
+			}).fail(onFail);
+		}
+	}).fail(onFail);
+	return false;
+}
+function loginBtn(force)
+{
+	if (ProfileInfo.isUser == 0 || force)
+	{
+		showModal('#win_login');
+	} else {
+		doLogout();
+	}
+}
+function loginRequireMsg()
+{
+	return '%l10n_err_unauthorized%. <a href="javascript://" onclick="loginBtn(true)">%l10n_msg_unauthorized%</a>';
+}
+function getCookie(cname)
+{
+	var name = cname + "=";
+	var decodedCookie = decodeURIComponent(document.cookie);
+	var ca = decodedCookie.split(';');
+	for(var i = 0; i < ca.length; i++)
+	{
+		var c = ca[i];
+		while (c.charAt(0) == ' ')
+		{
+			c = c.substring(1);
+		}
+		if (c.indexOf(name) == 0)
+		{
+			return c.substring(name.length, c.length);
+		}
+	}
+	return "";
+}
+function delCookie(name)
+{
+	document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+}
+function getQueryStringValue(key)
+{
+	var k = encodeURIComponent(key).replace(/[\.\+\*]/g, "\\$&");
+
+	if (window.location.search.search("[\?&]" + k + "=") == -1)
+		return null;
+
+	return decodeURIComponent(window.location.search.replace(new RegExp("^(?:.*[&\\?]" + k + "(?:\\=([^&]*))?)?.*$", "i"), "$1"));
+}
+function settingsGetBool(name, def)
+{
+	var ret = localStorage.getItem(name);
+	return (ret == null ? def : (ret == 1));
+}
+function settingsSetBool(name, val)
+{
+	localStorage.setItem(name, (val ? '1':'0'));
+}
+function recheckCoordsLock()
+{
+	if (getCookie('uselocation') != '')
+	{
+		$('.coordlock').html('<img src="img/icon-location.png"/> %l10n_loc_locked% &nbsp;<button class=delcoord>%l10n_btn_reset%</button>');
+		$('button.delcoord').click(function ()
+		{
+			if (!confirm('%l10n_map_unlock_coords%')) return false;
+			delCookie('uselocation');
+			if (getCookie('uselocation') == '')
+			{
+				$('.coordlock').html('');
+				delCoordCallback();
+			}
+		});
+	}
+	else
+		$('.coordlock').html('');
+}
+
+var ProfileInfo = {%profile%};
+var BanReasons = %ban_reasons%;
+
+function initmenu()
+{
+	if (this != top)
+	{
+		top.location.href = this.location.href;
+	}
+
+	if (ProfileInfo.isUser == 0)
+	{
+		$('a[href=user]').hide();
+	}
+	else if (ProfileInfo.viewUser != '')
+	{
+		var str = $('#returnbtn > p').html();
+		str = str.replace(/%username%/g, encodeHTML(ProfileInfo.viewUser));
+		$('#returnbtn > p').html(str);
+		$($('a[href=user]')[0]).hide().next().show();
+	}
+
+	if (!isMobile())
+	{
+		$('.multi').mouseenter(function()
+		{
+			$(this.children[1]).show();
+		}).mouseleave(function()
+		{
+			$(this.children[1]).hide();
+		});
+	}
+	else
+	{
+		$('.multi').click(function()
+		{
+			if(!this.children[1].isDoubleTap)
+			{
+				this.children[1].isDoubleTap = true;
+				$(this.children[1]).show();
+				return false;
+			}
+			$(this.children[1]).hide();
+			this.children[1].isDoubleTap = false;
+			return true;
+		});
+	}
+	recheckCoordsLock();
+}
+</script>
+%head%
+</head>
+<body onload="initmenu(); initpage()">
+<div class=header>
+	%theme_head%
+	<div class=mainmenu>
+		<a href="home"><img class=menulogo src="img/logo.png"></a>
+		<div class="menubtn logoplace"><p></p></div>
+		<span class=multi>
+			<a href="home"><div class="%chk_docs%"><p>%l10n_menu_about%</p></div></a>
+			<span class=submenu>
+				<a href="home"><div class="%chk_home%"><p>%l10n_menu_home%</p></div></a>
+				<a href="faq"><div class="%chk_faq%"><p>%l10n_menu_faq%</p></div></a>
+				<a href="apidoc"><div class="%chk_apidoc%"><p>%l10n_menu_api%</p></div></a>
+				<a href="rules"><div class="%chk_rul%"><p>%l10n_menu_rules%</p></div></a>
+			</span>
+		</span>
+		<a href="map"><div class="%chk_map%"><p>%l10n_menu_map%</p></div></a>
+		<a href="find"><div class="%chk_find%"><p>%l10n_menu_find%</p></div></a>
+		<span class=multi>
+			<a href="ranges"><div class="%chk_tool%"><p>%l10n_menu_tools%</p></div></a>
+			<span class=submenu>
+				<a href="ranges"><div class="%chk_rang%"><p>%l10n_menu_ranges%</p></div></a>
+				<a href="devmac"><div class="%chk_dev%"><p>%l10n_menu_devmac%</p></div></a>
+				<a href="wpspin"><div class="%chk_wps%"><p>%l10n_menu_wpspin%</p></div></a>
+			</span>
+		</span>
+		<a href="upload"><div class="%chk_load%"><p>%l10n_menu_upload%</p></div></a>
+		<span class=multi>
+			<a href="stat"><div class="%chk_st%"><p>%l10n_menu_state%</p></div></a>
+			<span class=submenu>
+				<a href="stat"><div class="%chk_stat%"><p>%l10n_menu_stats%</p></div></a>
+				<a href="graph"><div class="%chk_grph%"><p>%l10n_menu_dynamic%</p></div></a>
+			</span>
+		</span>
+		<a href="javascript://" onclick="loginBtn(false)" style="float: right"><div class=menubtn><p>%login_str%</p></div></a>
+		<a href="user"><div class="%chk_user%" style="float: right"><p>%nick%</p></div></a>
+		<span class=multi style="display: none; float: right">
+			<a href="user"><div class="%chk_user%"><p>%nick%</p></div></a>
+			<span class=submenu>
+				<a href="#" onclick="return doReturnView()"><div class="submbtn" id=returnbtn><p>%l10n_menu_return%</p></div></a>
+			</span>
+		</span>
+	</div>
+</div>
+
+%broadcast%
+<div class="content %page%">%content%</div>
+
+<div class=footer>&copy; 2015-2022 akokarev, binarymaster, Felis-Sapiens, Fusix</div>
+
+<div class=modal>
+	<div class=modal_bkg onclick="hideModal()"></div>
+	<div class=modal_cnt align=center id=win_login>
+	</div>
+	<div class=modal_cnt align=center id=win_reg>
+	</div>
+	<div class=modal_cnt align=center id=win_newpass>
+	</div>
+	<div style="position: absolute" align=center id=win_wait>
+	</div>
+</div>
+</body>
+</html>

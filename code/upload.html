@@ -1,0 +1,461 @@
+<title>%l10n_title_upload%</title>
+
+<head>
+<script type="text/javascript">
+function hideHintCheck(e)
+{
+	var hint = $('.hint');
+	if (!hint.is(e.target) && hint.has(e.target).length === 0)
+	{
+		if ($('input[type=text]').is(e.target))
+			return;
+		hideHint();
+	}
+}
+function hideHint()
+{
+	$(document).unbind('mouseup', hideHintCheck);
+	$('.hint').hide();
+}
+function selectComm(e)
+{
+	var el = (e.target.tagName == 'B' ? e.target.parentNode : e.target);
+	$('input[type=text]').val($(el).text());
+	hideHint();
+}
+function showHintExec()
+{
+	var query = 'a=commhint';
+	query += '&comm=' + encodeURIComponent($('input[type=text]').val());
+	query += '&html=1';
+	$.get('3wifi.php?' + query, function(data)
+	{
+		var hint = $('.hint');
+		hint.empty();
+		if (data.hint.length > 0)
+		{
+			hint.css('top', ($('.wrapper input').height() + 6) + 'px');
+			for (var i = 0; i < data.hint.length; i++)
+			{
+				var div = $('<div>');
+				div.prop('class', 'hval');
+				div.html(data.hint[i]);
+				div.click(selectComm);
+				hint.append(div);
+			}
+			$(document).mouseup(hideHintCheck);
+			hint.show();
+		}
+		else
+			hideHint();
+	});
+}
+function showHint()
+{
+	if (hintTimeout != null)
+		clearTimeout(hintTimeout);
+	if ($('input[type=text]').val() == '')
+	{
+		hideHint();
+		return;
+	}
+	hintTimeout = setTimeout(showHintExec, 500);
+}
+function filePart(file, from, len)
+{
+	if (typeof file.slice == "function") {
+		return file.slice(from, len);
+	} else if (file.webkitSlice) {
+		return file.webkitSlice(from, len);
+	} else if (file.mozSlice) {
+		return file.mozSlice(from, len);
+	}
+	return false;
+}
+function uploadStat()
+{
+	$.get('3wifi.php?a=upstat&tid=' + tid, function(data)
+	{
+		if (data.upstat.state == -1)
+		{
+			$('#output').append('<b>%l10n_str_error%</b> %l10n_upload_task_unset%.<br>');
+			return;
+		}
+		if (lastState < data.upstat.state)
+		{
+			if (data.upstat.state >= 1)
+			{
+				if (lastState < 1)
+					$('#output').append('%l10n_upload_proc_begin%<br>');
+				if ($('#cnttotal').length == 0)
+					$('#output').append('%l10n_str_uploaded% <b id=cntadded></b> %l10n_str_of% <b id=cnttotal></b><span id=st2></span>.<br>');
+			}
+			if (data.upstat.state >= 2)
+			{
+				if (data.upstat.warns.length > 0 && $('#ulwrn').length == 0)
+				{
+					$('#output').append('%l10n_upload_not_added% <button onclick="$(\'#ulwrn\').css(\'display\',\'block\')">%l10n_btn_show%</button><br><ul id=ulwrn style="display:none"></ul>');
+					var warns = data.upstat.warns.split(',');
+					var line = 0;
+					var warnid = 0;
+					var wrnstr = '';
+					for (var i = 0; i < warns.length; i++)
+					{
+						line = parseInt(warns[i].split('|')[0]);
+						warnid = parseInt(warns[i].split('|')[1]);
+						wrnstr = '%l10n_err_unknown%';
+						switch (warnid)
+						{
+							case 1:
+							wrnstr = '%l10n_upload_err_invalid%';
+							break;
+							case 2:
+							wrnstr = '%l10n_upload_err_wired%';
+							break;
+							case 3:
+							wrnstr = '%l10n_upload_err_nowlan%';
+							break;
+							case 4:
+							wrnstr = '%l10n_upload_err_exist%';
+							break;
+						}
+						$('#ulwrn').append('<li>%l10n_str_line% ' + line + ': ' + wrnstr + '.</li>');
+					}
+				}
+				if (lastState < 2)
+					$('#output').append('<br>%l10n_upload_detect_loc%<br>');
+				if ($('#cntfound').length == 0)
+					$('#output').append('%l10n_upload_found% <b id=cntfound></b><span id=st3></span>.<br>');
+			}
+			if (data.upstat.state == 3)
+			{
+				$('#output').append('%l10n_upload_task_done%<br>');
+				setProgress(0);
+				$('input[type=file]').replaceWith($('input[type=file]').val('').clone(true));
+				$('input[type=file]').prop('disabled', false);
+				$('input[type=text]').prop('disabled', false);
+				$('input[type=checkbox]').prop('disabled', false);
+			}
+		}
+		var ajaxstr = '&nbsp;<img src="%theme_ajax%">..';
+		if ($('#st2').length > 0)
+			if (data.upstat.state == 1)
+			{
+				$('#st2').html(ajaxstr);
+			} else {
+				$('#st2').empty();				
+			}
+		if ($('#st3').length > 0)
+			if (data.upstat.state == 2)
+			{
+				$('#st3').html(ajaxstr);
+			} else {
+				$('#st3').empty();				
+			}
+		if ($('#cnttotal').length > 0)
+		{
+			$('#cnttotal').html(data.upstat.lines);
+			$('#cntadded').html(data.upstat.accepted);
+		}
+		if ($('#cntfound').length > 0)
+			$('#cntfound').html(data.upstat.onmap);
+		lastState = data.upstat.state;
+		if (data.upstat.state < 3) setTimeout('uploadStat()', 3000);
+	});
+}
+function processLines()
+{
+	var lines = reader.result.split(/\r?\n/).length;
+	switch (act)
+	{
+		case 0: // init
+		if (lines < ldLines + 1)
+		{
+			if (from + blob.size < file.size)
+			{
+				// try load more lines
+				szChunk += szStep;
+				blob = filePart(file, from, szChunk);
+				reader.readAsText(blob);
+				return;
+			}
+			// upload entire file
+			act = 3;
+			oldf = from;
+			from += blob.size;
+			setTimeout('processLines()', 1);
+			return;
+		}
+		if (lines > ldLines + 1)
+		{
+			// try load less lines
+			act = 1;
+			shr = 1;
+			parm = 1;
+			setTimeout('processLines()', 1);
+			return;
+		}
+		if (lines == ldLines + 1)
+		{
+			// cut excess data
+			act = 2;
+			parm = 1;
+			setTimeout('processLines()', 1);
+			return;
+		}
+		break;
+
+		case 1: // load less lines
+		if (lines > ldLines + 1)
+		{
+			if (parm < 0)
+			{
+				parm = 1;
+				shr++;
+			}
+			var delta = szStep >> shr;
+			if (delta == 0) delta = 1;
+			szChunk -= delta;
+			blob = filePart(file, from, szChunk);
+			reader.readAsText(blob);
+			return;
+		}
+		if (lines < ldLines + 1)
+		{
+			if (parm > 0)
+			{
+				parm = -1;
+				shr++;
+			}
+			var delta = szStep >> shr;
+			if (delta == 0) delta = 1;
+			szChunk += delta;
+			blob = filePart(file, from, szChunk);
+			reader.readAsText(blob);
+			return;
+		}
+		if (lines == ldLines + 1)
+		{
+			act = 2;
+			parm = 1;
+			setTimeout('processLines()', 1);
+			return;
+		}
+		break;
+
+		case 2: // cut excess data
+		if (reader.result.charCodeAt(reader.result.length - 1) == 10)
+		{
+			act = 3;
+			oldf = from;
+			from += blob.size;
+			setTimeout('processLines()', 1);
+		} else {
+			var delta = 1;
+			if (parm == 1)
+			{
+				delta = reader.result.length - reader.result.lastIndexOf("\n") - 1;
+				parm = 0;
+			}
+			szChunk -= delta;
+			blob = filePart(file, from, szChunk);
+			reader.readAsText(blob);
+		}
+		return;
+		break;
+
+		case 3: // upload part
+		setProgress((oldf + from) / (file.size * 2));
+		var query = 'a=upload';
+		if (tid != '') query += '&tid=' + tid;
+		query += '&comment=' + encodeURIComponent($('input[type=text]').val());
+		query += '&checkexist=' + ($('input[type=checkbox]').prop('checked') ? '1' : '0');
+		if (from == file.size) query += '&done=1';
+		var ct = 'text/csv';
+		if (file.name.substr(file.name.lastIndexOf('.')).toLowerCase() == '.txt') ct = 'text/plain';
+
+		$.ajax({
+			type: 'POST',
+			url: '3wifi.php?' + query,
+			contentType: ct,
+			data: reader.result,
+			cache: false,
+			processData: false,
+			success: function(data)
+			{
+				for (var i = 0; i < data.upload.error.length; i++)
+				{
+					var err = '%l10n_err_unknown%';
+					switch (data.upload.error[i])
+					{
+						case 1:
+						err = '%l10n_upload_task_bad%';
+						break;
+						case 2:
+						err = '%l10n_upload_task_none%';
+						break;
+						case 3:
+						err = '%l10n_upload_task_proc%';
+						break;
+						case 4:
+						err = '%l10n_upload_task_format%';
+						break;
+						case 5:
+						err = '%l10n_upload_task_size%';
+						break;
+						case 6:
+						err = '%l10n_upload_task_csv%';
+						break;
+						case 7:
+						err = '%l10n_upload_task_txt%';
+						break;
+					}
+					$('#output').append('<b>%l10n_str_error%</b> ' + err + '.<br>');
+				}
+				if (data.upload.state)
+				{
+					tid = data.upload.tid;
+					setProgress(from / file.size);
+					if (!data.upload.processing)
+					{
+						if (from < file.size)
+						{
+							// process next part
+							act = 0;
+							szChunk = szStep;
+							blob = filePart(file, from, szChunk);
+							reader.readAsText(blob);
+						} else {
+							$('input[type=file]').replaceWith($('input[type=file]').val('').clone(true));
+							$('input[type=file]').prop('disabled', false);
+							$('input[type=text]').prop('disabled', false);
+							$('input[type=checkbox]').prop('disabled', false);
+							$('#st1').empty();
+							$('#output').append('%l10n_upload_done%<br>');
+							$('#output').append('<br>%l10n_upload_proc_fail%.<br>');
+						}
+					} else {
+						$('#st1').empty();
+						if (from < file.size)
+						{
+							$('#output').append('%l10n_upload_undone%<br>');
+						} else {
+							$('#output').append('%l10n_upload_done%<br>');
+						}
+						$('#output').append('<br>%l10n_msg_processing%<br>');
+						$('#output').append('<b>%l10n_str_notice%</b> %l10n_msg_upload_background%<br><br>');
+						lastState = 0;
+						setTimeout('uploadStat()', 1000);
+					}
+				} else {
+					setProgress(0);
+					$('#st1').empty();
+					$('input[type=file]').replaceWith($('input[type=file]').val('').clone(true));
+					$('input[type=file]').prop('disabled', false);
+					$('input[type=text]').prop('disabled', false);
+					$('input[type=checkbox]').prop('disabled', false);
+					$('#output').append('%l10n_msg_upload_stopped%<br>');
+				}
+			}
+		});
+		return;
+		break;
+	}
+}
+function startProcess()
+{
+	$('input[type=file]').prop('disabled', true);
+	$('input[type=text]').prop('disabled', true);
+	$('input[type=checkbox]').prop('disabled', true);
+	$('input[type=submit]').prop('disabled', true);
+	szStep = 1048576;
+	ldLines = 500;
+
+	tid = '';
+	act = 0;
+	from = 0;
+	szChunk = szStep;
+
+	$('#output').append('%l10n_msg_upload_file%<span id=st1>&nbsp;<img src="%theme_ajax%"></span><br>');
+	reader = new FileReader();
+	reader.onload = processLines;
+	blob = filePart(file, from, szChunk);
+	reader.readAsText(blob);
+}
+function jqEscape(str)
+{
+	return $('<div>').text(str).html();
+}
+function checkFile(f)
+{
+	$('input[type=submit]').prop('disabled', true);
+	file = f.files[0];
+	if (!file) return;
+	if (file.size > 500000000) // 500 MB
+	{
+		$(f).replaceWith($(f).val('').clone(true));
+		$('#output').text('%l10n_msg_upload_size%');
+		return;
+	}
+	if (file.size == 0)
+	{
+		$(f).replaceWith($(f).val('').clone(true));
+		$('#output').text('%l10n_msg_upload_nodata%');
+		return;
+	}
+	$('input[type=submit]').prop('disabled', false);
+	setProgress(0);
+	$('#output').empty();
+	var ext = file.name.substr(file.name.lastIndexOf('.')).toLowerCase();
+	if (ext != '.txt' && ext != '.csv')
+		$('#output').append('<b>%l10n_str_warning%</b> %l10n_msg_upload_extension%<br>');
+	$('#output').append('%l10n_str_file% <b>' + jqEscape(file.name) + '</b> %l10n_str_upload_ready%.<br>');
+}
+
+function setProgress(val)
+{
+	var perc = $('.perc:last');
+	var wid = 180;
+	perc.css('width', wid + 'px');
+	var chld = $('<span class=perc-data>');
+	chld.css('width', Math.round(val * 100) + '%');
+	perc.html(chld);
+	$('#percnum').html('&nbsp; '+Math.round(val * 100)+'%');
+}
+function initpage()
+{
+	if (window.File && window.FileReader && window.FileList && window.Blob)
+	{
+		// Good
+		setProgress(0);
+	} else {
+		$('#formtable').html("%l10n_msg_upload_fileapi%");
+	}
+	hintTimeout = null;
+	$('input[type=text]').click(function()
+	{
+		if ($('.hint').is(":hidden"))
+			showHint();
+		else
+			hideHint();
+	});
+}
+</script>
+</head>
+
+<body>
+<div class=uploadbkg id=formtable>
+	<table>
+	<tr><td>%l10n_str_upload%</td><td><input name="userfile" type="file" accept=".csv,.txt" onchange="checkFile(this)" /> &nbsp;(%l10n_upload_format%)</td></tr>
+	<tr><td>%l10n_str_your_comment%</td><td><span class=wrapper>
+		<input name="comment" type="text" placeholder="%l10n_str_comment_place%" autocomplete="off" onkeyup="showHint()" />
+		<span class=hint style="display: none; width: 320px; max-height: 300px; overflow-y: auto"></span>
+	</span></td></tr>
+	<tr><td style="vertical-align: top">%l10n_str_misc%</td><td><input type="checkbox" name="checkexist" id="checkexist" value="1"> <label for="checkexist">%l10n_upload_checkexist%</label></td></tr>
+	<tr><td>%l10n_str_upload_progress%</td><td><span class=perc></span><b id=percnum></b></td></tr>
+	<tr><td><input type="submit" value="%l10n_btn_upload%" onclick="startProcess()" disabled></td><td></td></tr>
+	</table>
+</div>
+<hr>
+<p id=output></p>
+</body>

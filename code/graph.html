@@ -1,0 +1,201 @@
+<title>%l10n_title_graph%</title>
+
+<head>
+<script language="javascript" type="text/javascript" src="js/jquery.flot.min.js"></script>
+<script language="javascript" type="text/javascript" src="js/jquery.flot.categories.min.js"></script>
+<script language="javascript" type="text/javascript" src="js/jquery.flot.resize.js"></script>
+<script type="text/javascript">
+function showLoads()
+{
+	if (loadsTimeout != null)
+		clearTimeout(loadsTimeout);
+	recheckCoordsLock();
+	$.get('3wifi.php?a=loads', function(d)
+	{
+		var lo = 0, hi = 0, dt = 0, days = [];
+		if (!d.result)
+		{
+			$('#stat').text(errorStr(d.error));
+			return;
+		}
+		for (var i = 0; i < d.data.length; i++)
+		{
+			d.data[i][2] = d.data[i][0];
+			dt = d.data[i][0].split('.');
+			if (lo == 0) lo = dt[0] + '.' + dt[1];
+			hi = dt[0] + '.' + dt[1];
+			if (days.indexOf(dt[2]) > -1) dt[2] += ' '; // hack to prevent graph overlapping
+			days.push(dt[2]);
+			d.data[i][0] = dt[2];
+		}
+		d.label = (lo == hi ? lo : lo + '-' + hi);
+		$('#stat').text('%l10n_str_today_loaded% ');
+		var dyn = (d.data[d.data.length - 1][1] > d.data[d.data.length - 2][1] ? 1 : -1);
+		$('#today').html(d.data[d.data.length - 1][1] + ' <font color="#'+(dyn > 0 ? '0f0">▲' : 'f00">▼')+'</font>');
+
+		gl_data.pop();
+		gl_data.push(d);
+		$.plot('#graphload', gl_data, gl_opts);
+		loadsTimeout = setTimeout(showLoads, 600000); // 10 min
+	}).fail(function(jqXHR, textStatus, errorThrown) {
+		$('#stat').text('%l10n_err_data%');
+		loadsTimeout = setTimeout(showLoads, 5000);
+	});
+}
+function zip(arr)
+{
+	var result = [];
+	for (var i = 0; i < arr.length; i++) result.push([i,arr[i]]);
+	return result;
+}
+function showTasks()
+{
+	$.get('3wifi.php?a=stat&mode=2', function(d)
+	{
+		if (!d.result)
+		{
+			$('#task').text(errorStr(d.error));
+			return;
+		}
+		$('#task').text(d.stat.tasks.comment == null ? '%l10n_str_no_tasks%' : '%l10n_tbl_task_now% ' + d.stat.tasks.comment);
+		gtv_load.splice(0,1);
+		gtv_load.push(d.stat.tasks.uploading);
+		gt_load.data = zip(gtv_load);
+		gtv_proc.splice(0,1);
+		gtv_proc.push(d.stat.tasks.processing);
+		gt_proc.data = zip(gtv_proc);
+		gtv_geo.splice(0,1);
+		gtv_geo.push(d.stat.geoloc);
+		gt_geo.data = zip(gtv_geo);
+		$.plot('#graphtask', [gt_geo,gt_load,gt_proc], gt_opts);
+		setTimeout(showTasks, 1000);
+	}).fail(function(jqXHR, textStatus, errorThrown) {
+		$('#task').text('%l10n_err_data%');
+		setTimeout(showTasks, 5000);
+	});
+}
+function delCoordCallback()
+{
+	showLoads();
+}
+function initpage()
+{
+	$("<div id='tooltip'></div>").css({
+		position: 'absolute',
+		display: 'none',
+		border: '1px solid #ffd',
+		padding: '2px',
+		'background-color': '#ffe',
+		opacity: 0.80
+	}).appendTo('body');
+	gl_opts = {
+		series: {
+			color: '#9d7',
+			lines: { show: true, fill: true, lineWidth: 1 },
+			points: { show: true }
+		},
+		grid: { hoverable: true },
+		xaxis: {
+			mode: 'categories',
+			tickDecimals: 0,
+			tickSize: 1
+		},
+		yaxis: { min: 0, tickDecimals: 0 }
+	};
+	gl_data = [];
+	$.plot('#graphload', gl_data, gl_opts);
+	$('#graphload').bind('plothover', function (event, pos, item)
+	{
+		if (item) {
+			var x = item.series.data[item.dataIndex][2],
+				y = item.datapoint[1];
+
+			$('#tooltip').html(y + ' %l10n_str_loaded% ' + x)
+				.css({top: item.pageY - $('#tooltip').height() - 9, left: item.pageX - $('#tooltip').width()/2})
+				.fadeIn(200);
+		} else
+			$('#tooltip').hide();
+	});
+	$('#today').empty();
+	$('#stat').text('%l10n_str_updating%');
+	loadsTimeout = null;
+	showLoads();
+
+	gtv_load = [];
+	for (var i = 0; i < 60; i++) gtv_load.push(0);
+	gt_load = {};
+	gt_load.data = zip(gtv_load);
+	gt_load.label = '%l10n_graph_task_load%';
+
+	gtv_proc = [];
+	for (var i = 0; i < 60; i++) gtv_proc.push(0);
+	gt_proc = {};
+	gt_proc.data = zip(gtv_proc);
+	gt_proc.label = '%l10n_graph_task_proc%';
+
+	gtv_geo = [];
+	for (var i = 0; i < 60; i++) gtv_geo.push(0);
+	gt_geo = {};
+	gt_geo.data = zip(gtv_geo);
+	gt_geo.label = '%l10n_graph_task_geo%';
+
+	gt_opts = {
+		series: { bars: { show: true, fill: true, lineWidth: 1 } },
+		xaxis: {
+			show: false,
+			tickDecimals: 0,
+			tickSize: 1
+		},
+		yaxis: { min: 0, tickDecimals: 0 }
+	};
+	$.plot('#graphtask', [gt_geo,gt_load,gt_proc], gt_opts);
+
+	showTasks();
+}
+</script>
+<style>
+.gtable
+{
+	width: 100%;
+}
+.gtable td
+{
+	position: relative;
+}
+.graphbkg
+{
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	right: 0;
+}
+.gtd:before
+{
+	content: "";
+	display: block;
+	padding-top: 75%;
+}
+</style>
+</head>
+
+<body>
+<h2 align=center class=header_cap>%l10n_msg_graph%</h2>
+<table class=gtable>
+<tr>
+	<td class=gtd>
+		<div class=graphbkg>
+			<div id=graphload class=dgraph></div>
+			<div align=left><span id=stat></span><span id=today></span></div>
+		</div>
+	</td>
+	<td class=gtd>
+		<div class=graphbkg>
+			<div id=graphtask class=dgraph></div>
+			<div align=left><span id=task>&nbsp;</span></div>
+		</div>
+	</td>
+</tr>
+</table>
+<div class=coordlock></div>
+</body>

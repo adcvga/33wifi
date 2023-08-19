@@ -1,0 +1,268 @@
+<?php
+include 'config.php';
+
+function validPage($page)
+{
+	$result = '';
+	if ($page == 'home' ||
+		$page == 'rules' ||
+		$page == 'faq' ||
+		$page == 'apidoc' ||
+		$page == 'map' ||
+		$page == 'find' ||
+		$page == 'ranges' ||
+		$page == 'devmac' ||
+		$page == 'wpspin' ||
+		$page == 'upload' ||
+		$page == 'graph' ||
+		$page == 'stat' ||
+		$page == 'user')
+	{
+		$result = $page;
+	}
+	return $result;
+}
+function validForm($form)
+{
+	$result = '';
+	if ($form == 'win_login' ||
+		$form == 'win_reg' ||
+		$form == 'win_newpass' ||
+		$form == 'win_wait')
+	{
+		$result = $form;
+	}
+	return $result;
+}
+function preparePage(&$content)
+{
+	global $page;
+	$mb = 'menubtn';
+	$mbs = $mb.' mbsel';
+	$content = str_replace('%chk_docs%', ($page == 'home' || $page == 'faq' || $page == 'apidoc' || $page == 'rules' ? $mbs : $mb), $content);
+	$content = str_replace('%chk_map%', ($page == 'map' ? $mbs : $mb), $content);
+	$content = str_replace('%chk_find%', ($page == 'find' ? $mbs : $mb), $content);
+	$content = str_replace('%chk_tool%', ($page == 'ranges' || $page == 'devmac' || $page == 'wpspin' ? $mbs : $mb), $content);
+	$content = str_replace('%chk_load%', ($page == 'upload' ? $mbs : $mb), $content);
+	$content = str_replace('%chk_st%', ($page == 'stat' || $page == 'graph' ? $mbs : $mb), $content);
+	$content = str_replace('%chk_user%', ($page == 'user' ? $mbs : $mb), $content);
+
+	$sm = 'submbtn';
+	$sms = $sm.' smsel';
+	$content = str_replace('%chk_home%', ($page == 'home' ? $sms : $sm), $content);
+	$content = str_replace('%chk_faq%', ($page == 'faq' ? $sms : $sm), $content);
+	$content = str_replace('%chk_apidoc%', ($page == 'apidoc' ? $sms : $sm), $content);
+	$content = str_replace('%chk_rul%', ($page == 'rules' ? $sms : $sm), $content);
+	$content = str_replace('%chk_rang%', ($page == 'ranges' ? $sms : $sm), $content);
+	$content = str_replace('%chk_dev%', ($page == 'devmac' ? $sms : $sm), $content);
+	$content = str_replace('%chk_wps%', ($page == 'wpspin' ? $sms : $sm), $content);
+	$content = str_replace('%chk_stat%', ($page == 'stat' ? $sms : $sm), $content);
+	$content = str_replace('%chk_grph%', ($page == 'graph' ? $sms : $sm), $content);
+
+	global $theme_data, $theme, $themes_str;
+	$content = str_replace('%theme_css%', $theme_data['css'], $content);
+	$content = str_replace('%theme_head%', $theme_data['head'], $content);
+	$content = str_replace('%theme_ajax%', $theme_data['ajax'], $content);
+
+	$content = str_replace('%theme%', $theme, $content);
+	$content = str_replace('%themes%', $themes_str, $content);
+
+	global $broadcast;
+	$content = str_replace('%broadcast%', $broadcast, $content);
+
+	global $UserManager, $l10n, $ban_reasons, $profile, $lat, $lon, $rad;
+	$ViewLogin = $UserManager->Login;
+	$ViewNick = $UserManager->Nick;
+	$ViewLevel = $UserManager->Level;
+	$ViewInvites = $UserManager->invites;
+	$ViewRAPI = $UserManager->ReadApiKey;
+	$ViewWAPI = $UserManager->WriteApiKey;
+	$ViewReg = $UserManager->RegDate;
+	$ViewInviter = $UserManager->InviterNickName;
+	$ViewUser = '';
+
+	if (!is_null($UserManager->vuID))
+	{
+		$ViewUser = $ViewNick;
+		$info = $UserManager->getUserInfo($UserManager->vuID);
+		$ViewLogin = $info['login'];
+		$ViewNick = $info['nick'];
+		$ViewLevel = (int)$info['level'];
+		$ViewInvites = (int)$info['invites'];
+		$ViewRAPI = $info['rapikey'];
+		$ViewWAPI = $info['wapikey'];
+		$ViewReg = $info['regdate'];
+		$ViewInviter = $UserManager->getUserNameById($info['puid']);
+	}
+
+	if (empty($ViewRAPI)) $ViewRAPI = $l10n['no_access'];
+	if (empty($ViewWAPI)) $ViewWAPI = $l10n['no_access'];
+
+	$content = str_replace('%login_str%', ($UserManager->isLogged() ? $l10n['menu_logout'] : $l10n['menu_login']), $content);
+	$content = str_replace('%ban_reasons%', json_encode($ban_reasons), $content);
+	$content = str_replace('%profile%', $profile, $content);
+	$content = str_replace('%isUser%', (int)$UserManager->isLogged(), $content);
+	$content = str_replace('%login%', htmlspecialchars($ViewLogin), $content);
+	$content = str_replace('%nick%', htmlspecialchars($ViewNick), $content);
+	$content = str_replace('%user_access_level%', $ViewLevel, $content);
+	$content = str_replace('%user_invites%', $ViewInvites, $content);
+	$content = str_replace('%view_user%', htmlspecialchars($ViewUser), $content);
+	$content = str_replace('%rapikey%', $ViewRAPI, $content);
+	$content = str_replace('%wapikey%', $ViewWAPI, $content);
+	$content = str_replace('%regdate%', $ViewReg, $content);
+	$content = str_replace('%refuser%', $ViewInviter, $content);
+	$content = str_replace('%var_lat%', $lat, $content);
+	$content = str_replace('%var_lon%', $lon, $content);
+	$content = str_replace('%var_rad%', $rad, $content);
+	$content = str_replace('%var_ymaps_apikey%', YMAPS_APIKEY, $content);
+	$content = str_replace('%var_wait%', GUEST_WAIT, $content);
+
+	foreach ($l10n as $key => $value)
+	{
+		$content = str_replace("%l10n_$key%", $value, $content);
+	}
+}
+function getNews()
+{
+	$project_news = json_decode(file_get_contents('project_news.json'), true);
+	$service_news = json_decode(file_get_contents('service_news.json'), true);
+	$news = array_merge_recursive($service_news, $project_news);
+	krsort($news);
+	$out = "<ul>\r\n";
+	foreach ($news as $date => $list)
+	{
+		$a = array_merge(array("<b>$date</b>"), $list);
+		$out .= '<li>' . implode("<br>\r\n", $a) . "</li>\r\n";
+	}
+	$out .= '</ul>';
+	return $out;
+}
+
+if (isset($_GET['redir']) && $_GET['redir'] != '')
+{
+	$page = validPage($_GET['redir']);
+	if ($page != '')
+	{
+		Header('HTTP/1.0 303 See Other');
+		Header('Location: ' . $page);
+	}
+	exit();
+}
+
+require_once 'user.class.php';
+require_once 'utils.php';
+
+$UserManager = new User();
+$UserManager->load();
+
+if ($UserManager->Level == -2)
+{
+	$UserManager->out();
+	$UserManager->setUser();
+}
+
+$incscript = file_get_contents('counter.txt');
+
+$page = validPage(isset($_GET['page']) ? $_GET['page'] : 'home');
+$form = validForm(isset($_GET['fetch']) ? $_GET['fetch'] : '');
+if ($page == '') $page = '404';
+
+// getGeoByIP($_SERVER['REMOTE_ADDR'], YLOCATOR_APIKEY)
+$lat = DEFAULT_LAT;
+$lon = DEFAULT_LON;
+$rad = DEFAULT_RAD;
+
+function setFloat($in, &$out)
+{
+	if (isset($in))
+	{
+		$in = str_replace(',', '.', $in);
+		$out = (float)$in;
+	}
+}
+
+$uselocation = array();
+parse_str($_COOKIE['uselocation'], $uselocation);
+
+setFloat($uselocation['lat'], $lat);
+setFloat($uselocation['lon'], $lon);
+setFloat($uselocation['rad'], $rad);
+
+setFloat($_GET['lat'], $lat);
+setFloat($_GET['lon'], $lon);
+setFloat($_GET['rad'], $rad);
+
+include_once loadLanguage();
+
+$broadcast = '';
+if(TRY_USE_MEMORY_TABLES)
+{
+	$DataBaseStatus = GetStatsValue(STATS_DATABASE_STATUS);
+	if($DataBaseStatus == DATABASE_PREPARE)
+	{
+		$broadcast .= '<p class=failure><b>'.$l10n['warning'].'</b> '.$l10n['db_prepare'].'</p>';
+	}
+}
+
+$ban_reasons = array();
+$profile = 'isUser: %isUser%, Nickname: "%nick%", Level: %user_access_level%, invites: %user_invites%, viewUser: "%view_user%"';
+
+foreach (explode('|', BAN_REASONS) as $reason)
+{
+	$ban_reasons[$reason] = $l10n["ban_$reason"];
+}
+
+$theme_base = 'themes';
+$themes = scandir("$theme_base/");
+$filter = array();
+foreach ($themes as $theme_name)
+{
+	$theme_name = preg_replace("/[^a-zA-Z0-9\-_]+/", "", $theme_name);
+	if ( file_exists("$theme_base/$theme_name/theme.php") )
+		$filter[] = $theme_name;
+}
+$themes = $filter;
+
+$theme = $_COOKIE['theme'];
+$theme_data = array();
+if ( isset($theme) && in_array($theme, $themes, true) )
+{
+	require_once "$theme_base/$theme/theme.php";
+}
+else
+{
+	// use default theme
+	$theme_data['css'] = 'css/style.css?' . filemtime('css/style.css');
+	$theme_data['head'] = '';
+	$theme_data['ajax'] = 'img/loadsm.gif';
+}
+$themes_str = '['.(count($themes) > 0 ? "'".implode("','", $themes)."'" : '').']';
+
+if ($form != '')
+{
+	$content = file_get_contents($form.'.html');
+	preparePage($content);
+	echo $content;
+	die();
+}
+
+if (!file_exists($page.'.html')) $page = '404';
+$hfile = file_get_contents($page.'.html');
+
+$title = getStringBetween($hfile, '<title>', '</title>');
+if ($title == '') $title = $l10n['title'];
+$head = getStringBetween($hfile, '<head>', '</head>');
+$content = getStringBetween($hfile, '<body>', '</body>');
+
+$content = str_replace('%content%', $content, file_get_contents('index.html'));
+$content = str_replace('%title%', $title, $content);
+$content = str_replace('%head%', $head, $content);
+$content = str_replace('%page%', $page, $content);
+if (strpos($content, '%news%') !== false)
+{
+	$content = str_replace('%news%', getNews(), $content);
+}
+
+preparePage($content);
+
+echo str_replace('</body>', $incscript.'</body>', $content);

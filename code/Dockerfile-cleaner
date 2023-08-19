@@ -1,0 +1,9 @@
+FROM alpine:3.3
+
+ADD ../cron/crontab.txt /crontab.txt
+ADD ../cron/cleaner.sh /cleaner.sh
+COPY ../cron/entry.sh /entry.sh
+RUN chmod 755 /cleaner.sh /entry.sh
+RUN /usr/bin/crontab /crontab.txt
+
+CMD ["/entry.sh"]

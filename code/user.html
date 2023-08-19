@@ -1,0 +1,1413 @@
+﻿<title>%l10n_title_user%</title>
+
+<head>
+<script type="text/javascript">
+function levelToText(level)
+{
+	switch (level)
+	{
+		case -2: return '%l10n_user_banned%';
+		case -1: return '%l10n_user_unauthorized%';
+		case 0: return '%l10n_user_guest%';
+		case 1: return '%l10n_user_user%';
+		case 2: return '%l10n_user_developer%';
+		case 3: return '%l10n_user_admin%';
+		default: return '%l10n_no_access%';
+	}
+}
+
+function hideText(val, n)
+{
+	var hide = '';
+	for (var i = n; i < val.length; i++)
+		hide += '•';
+	return val.substr(0, n) + hide;
+}
+
+function revealSens(val)
+{
+	var loginField = ProfileLogin;
+	var rapikey = ProfileRAPI;
+	var wapikey = ProfileWAPI;
+	if (!val)
+	{
+		loginField = hideText(loginField, 1);
+		rapikey = hideText(rapikey, 4);
+		wapikey = hideText(wapikey, 4);
+	}
+	$('#loginField').text(loginField);
+	$('#rapikey').val(rapikey);
+	$('#wapikey').val(wapikey);
+}
+
+function initpage()
+{
+	if (ProfileInfo.isUser == 0) window.location.href = 'home';
+	ProfileLogin = '%login%';
+	ProfileRAPI = '%rapikey%';
+	ProfileWAPI = '%wapikey%';
+	revealSens($('#sens_chk').prop('checked'));
+	ThemesList = %themes%;
+	var sel = $('select[name=themes]');
+	var theme = '%theme%';
+	for (var i = 0; i < ThemesList.length; i++)
+	{
+		var opt = $('<option>');
+		opt.attr('value', ThemesList[i]);
+		opt.text(ThemesList[i]);
+		sel.append(opt);
+	}
+	sel.val(theme);
+	sel.change(function()
+	{
+		document.cookie = 'theme=' + this.value + '; expires=Tue, 19 Jan 2038 03:14:07 GMT';
+		location.reload(true);
+	});
+	if (ProfileInfo.Level == 3) $('#tab2b').show();
+
+	stLoading = false;
+
+	$('.user_tab').click(function()
+	{
+		var elem_content = this.getElementsByClassName('user_tab_content')[0];
+		elem_content.style.display = (elem_content.style.display == 'none') ? 'block' : 'none';
+	});
+
+	$('#userlevel').text(levelToText(ProfileInfo.Level));
+	var section = window.location.hash;
+	if (section != '' && (section != '#admin' || ProfileInfo.Level == 3))
+	{
+		var tab = 'a[href='+section+']';
+		if ($(tab).length > 0) $(tab).click();
+	}
+ 	for (var i = (ProfileInfo.Level < 3 ? 1 : 0); i <= (ProfileInfo.Level < 3 ? 1 : 3); i++)
+		$('#invlevel').append($('<option>').val(i).text(levelToText(i)));
+	var login = $('#tab1').find('td')[1].textContent;
+	if (ProfileInfo.Level > 0 && (ProfileInfo.Nickname.toLowerCase() == login.toLowerCase()))
+	{
+		alert("%l10n_user_login_eq_nick%");
+		editNick();
+	}
+	if (ProfileInfo.Level == 3)
+	{
+		userBoxTimeout = null;
+		for (var i = -2; i <= 3; i++)
+			$('select#user_level').append($('<option>').val(i).text(levelToText(i)));
+		var br = [''];
+		for (var reason in BanReasons)
+		{
+			br.push(reason);
+		};
+		br.forEach(function(reason)
+		{
+			$('select#ban_reason').append($('<option>').val(reason).text(reason));
+		});
+		$('select#user_level').change(function()
+		{
+			$('select#ban_reason').val(this.value < 0 ? 'left' : '');
+		});
+	}
+}
+
+function getMyUploads()
+{
+	$('#uploaded').html('<tr><td colspan=11><img src="img/loading.gif"></td></tr>');
+	$.get('user.php?a=myuploads', function(json)
+	{
+		$('#uploaded').empty();
+		if (!json.result)
+		{
+			$('#uploaded').html('<tr><td colspan=11>'+errorStr(json.error)+'</td></tr>');
+			return;
+		}
+		if (json.data.length == 0)
+		{
+			$('#uploaded').html('<tr><td colspan=11>%l10n_user_no_uploads%</td></tr>');
+			return;
+		}
+		for (var i = 0; i < json.data.length; i++)
+		{
+			var ap = json.data[i];
+			var tr = $('<tr>');
+			tr.append($('<td>').css({'font-family': 'monospace', 'white-space': 'nowrap'}).text(ap.time));
+			tr.append($('<td>').text(ap.comment));
+			tr.append($('<td>').css({'font-family': 'monospace'}).text(ap.ipport));
+			tr.append($('<td>').text(ap.auth));
+			tr.append($('<td>').text(ap.name));
+			ap.bssid = encodeHTML(ap.bssid, true);
+			if (ap.nowifi)
+			{
+				ap.bssid += ' <img src="img/icon-nowifi.png" title="%l10n_str_nowifi%"/>';
+			}
+			tr.append($('<td>').css({'font-family': 'monospace'}).html(ap.bssid));
+			ap.essid = encodeHTML(ap.essid, true);
+			if (ap.hidden)
+			{
+				ap.essid += ' <img src="img/icon-hidden.png" title="%l10n_str_hidden%"/>';
+			}
+			tr.append($('<td>').css({'white-space': 'nowrap'}).html(ap.essid));
+			tr.append($('<td>').text(ap.sec));
+			ap.key = encodeHTML(ap.key, true);
+			tr.append($('<td>').css({'white-space': 'nowrap'}).html(ap.key));
+			tr.append($('<td>').css({'font-family': 'monospace'}).text(ap.wps));
+			var urls = '';
+			if (typeof ap.lat == 'number')
+			{
+				urls += '<a href="map?lat='+ap.lat+'&lon='+ap.lon+'"><img src="img/icon-map.png"></a>&nbsp;';
+				urls += '<a href="ranges?lat='+ap.lat+'&lon='+ap.lon+'"><img src="img/icon-ip.png"></a>&nbsp;';
+			}
+			urls += '<a href="javascript://" onclick="markFav(this,'+ap.id+')"><img src="img/icon-fav-'+(ap.fav ? 'on' : 'off')+'.png"></a>';
+			tr.append($('<td>').html(urls));
+			$('#uploaded').append(tr);
+		}
+	}).fail(function(jqXHR, textStatus, errorThrown) {
+		$('#uploaded').html('<tr><td colspan=11>%l10n_err_data%</td></tr>');
+	});
+}
+
+function myDownload()
+{
+	$.get('user.php?a=dlcheck', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return;
+		}
+		if (json.count == 0)
+		{
+			alert('%l10n_user_download_no%');
+			return;
+		}
+		var a = document.createElement('a');
+		a.href = 'user.php?a=download';
+		a.download = 'myuploads.txt';
+		a.target = '_blank';
+		var clickEvent = new MouseEvent("click", {
+			"view": window,
+			"bubbles": true,
+			"cancelable": false
+		});
+		a.dispatchEvent(clickEvent);
+		a.remove();
+	}).fail(function(jqXHR, textStatus, errorThrown) {
+		alert('%l10n_err_data%');
+	});
+}
+
+function getMyFavorites()
+{
+	$('#favorited_aps').html('<tr><td colspan=9><img src="img/loading.gif"></td></tr>');
+	$.get('user.php?a=myfavs', function(json)
+	{
+		$('#favorited_aps').empty();
+		if (!json.result)
+		{
+			$('#favorited_aps').html('<tr><td colspan=9>'+errorStr(json.error)+'</td></tr>');
+			return;
+		}
+		$('#favap_cnt').text(json.data.length);
+		if (json.data.length == 0)
+		{
+			$('#favorited_aps').html('<tr><td colspan=9>%l10n_user_no_fav%</td></tr>');
+			return;
+		}
+		for (var i = 0; i < json.data.length; i++)
+		{
+			var ap = json.data[i];
+			var tr = $('<tr>');
+			tr.append($('<td>').css({'font-family': 'monospace', 'white-space': 'nowrap'}).text(ap.time.split(' ')[0]));
+			tr.append($('<td>').text(ap.comment));
+			tr.append($('<td>').css({'font-family': 'monospace'}).text(ap.range));
+			ap.bssid = encodeHTML(ap.bssid, true);
+			if (ap.nowifi)
+			{
+				ap.bssid += ' <img src="img/icon-nowifi.png" title="%l10n_str_nowifi%"/>';
+			}
+			tr.append($('<td>').css({'font-family': 'monospace'}).html(ap.bssid));
+			ap.essid = encodeHTML(ap.essid, true);
+			if (ap.hidden)
+			{
+				ap.essid += ' <img src="img/icon-hidden.png" title="%l10n_str_hidden%"/>';
+			}
+			tr.append($('<td>').css({'white-space': 'nowrap'}).html(ap.essid));
+			tr.append($('<td>').text(ap.sec));
+			ap.key = encodeHTML(ap.key, true);
+			tr.append($('<td>').css({'white-space': 'nowrap'}).html(ap.key));
+			tr.append($('<td>').css({'font-family': 'monospace'}).text(ap.wps));
+			var urls = '';
+			if (typeof ap.lat == 'number')
+			{
+				urls += '<a href="map?lat='+ap.lat+'&lon='+ap.lon+'"><img src="img/icon-map.png"></a>&nbsp;';
+				urls += '<a href="ranges?lat='+ap.lat+'&lon='+ap.lon+'"><img src="img/icon-ip.png"></a>&nbsp;';
+			}
+			urls += '<a href="javascript://" onclick="markFav(this,'+ap.id+')"><img src="img/no.png"></a>';
+			tr.append($('<td>').html(urls));
+			$('#favorited_aps').append(tr);
+		}
+	}).fail(function(jqXHR, textStatus, errorThrown) {
+		$('#favorited_aps').html('<tr><td colspan=9>%l10n_err_data%</td></tr>');
+	});
+}
+
+function simpleFail(jqXHR, textStatus, errorThrown)
+{
+	alert('%l10n_err_data%');
+}
+
+function markFav(e,id)
+{
+	if ($('.userTabActive')[0].id == 'tab3b')
+	{
+		$(e).find('img').attr('src', '%theme_ajax%');
+		var onFail = function(jqXHR, textStatus, errorThrown)
+		{
+			$(e).find('img').attr('src', 'img/no.png');
+			alert('%l10n_err_data%');
+		};
+		$.get('user.php?a=token', function(json)
+		{
+			if (!json.result)
+			{
+				alert(errorStr(json.error));
+				return;
+			} else {
+				var data = '';
+				data += '&token=' + encodeURIComponent(json.token);
+				data += '&id=' + id;
+				$.get('user.php?a=fav' + data, function(json)
+				{
+					if (!json.result)
+					{
+						$(e).find('img').attr('src', 'img/no.png');
+						alert(errorStr(json.error));
+						return;
+					}
+					if (json.fav)
+					{
+						$(e).find('img').attr('src', 'img/no.png');
+						return;
+					}
+					$(e).parent().parent().remove();
+					$('#favap_cnt').text(parseInt($('#favap_cnt').text()) - 1);
+					if (parseInt($('#favap_cnt').text()) == 0)
+						$('#favorited_aps').html('<tr><td colspan=9>%l10n_user_no_fav%</td></tr>');
+				}).fail(onFail);
+			}
+		}).fail(onFail);
+		return;
+	}
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return;
+		} else {
+			var data = '';
+			data += '&token=' + encodeURIComponent(json.token);
+			data += '&id=' + id;
+			$.get('user.php?a=fav' + data, function(json)
+			{
+				if (!json.result)
+				{
+					alert(errorStr(json.error));
+					return;
+				}
+				$(e).find('img').attr('src', 'img/icon-fav-'+(json.fav ? 'on' : 'off')+'.png');
+			}).fail(simpleFail);
+		}
+	}).fail(simpleFail);
+}
+
+function getMyLocations()
+{
+	$('#favorited_loc').html('<tr><td colspan=4><img src="img/loading.gif"></td></tr>');
+	$.get('user.php?a=mylocs', function(json)
+	{
+		$('#favorited_loc').empty();
+		if (!json.result)
+		{
+			$('#favorited_loc').html('<tr><td colspan=4>'+errorStr(json.error)+'</td></tr>');
+			return;
+		}
+		$('#favloc_cnt').text(json.data.length);
+		if (json.data.length == 0)
+		{
+			$('#favorited_loc').html('<tr><td colspan=4>%l10n_user_no_loc%</td></tr>');
+			return;
+		}
+		for (var i = 0; i < json.data.length; i++)
+		{
+			var loc = json.data[i];
+			var tr = $('<tr onclick="modifyLocation(this)">');
+			tr.append($('<td>').text(loc.lat));
+			tr.append($('<td>').text(loc.lon));
+			tr.append($('<td>').text(loc.cmt));
+			var urls = '';
+			urls += '<a href="map?lat='+loc.lat+'&lon='+loc.lon+'"><img src="img/icon-map.png"></a>&nbsp;';
+			urls += '<a href="ranges?lat='+loc.lat+'&lon='+loc.lon+'"><img src="img/icon-ip.png"></a>&nbsp;';
+			urls += '<a href="javascript://" onclick="deleteLocation(this,'+loc.lat+','+loc.lon+')"><img src="img/no.png"></a>';
+			tr.append($('<td>').html(urls));
+			$('#favorited_loc').append(tr);
+		}
+	}).fail(function(jqXHR, textStatus, errorThrown) {
+		$('#favorited_loc').html('<tr><td colspan=4>%l10n_err_data%</td></tr>');
+	});
+}
+
+function createLocation()
+{
+	var lat = $('#floclat').val();
+	var lon = $('#floclon').val();
+	var cmt = $('#floccmt').val();
+	$('#tab3').find('input,button').prop('disabled', true);
+	var onFail = function(jqXHR, textStatus, errorThrown)
+	{
+		$('#tab3').find('input,button').prop('disabled', false);
+		alert('%l10n_err_data%');
+	};
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return;
+		} else {
+			var data = '';
+			data += '&token=' + encodeURIComponent(json.token);
+			data += '&lat=' + lat;
+			data += '&lon=' + lon;
+			data += '&cmt=' + cmt;
+			$.get('user.php?a=addloc' + data, function(json)
+			{
+				$('#tab3').find('input,button').prop('disabled', false);
+				if (!json.result)
+				{
+					alert(errorStr(json.error));
+					return;
+				}
+				if ($($('#favorited_loc').find('td')[0]).attr('colspan') == 4)
+					$('#favorited_loc').empty();
+				if (json.new)
+				{
+					var tr = $('<tr onclick="modifyLocation(this)">');
+					tr.append($('<td>').text(json.lat));
+					tr.append($('<td>').text(json.lon));
+					tr.append($('<td>').text(json.cmt));
+					var urls = '';
+					urls += '<a href="map?lat='+json.lat+'&lon='+json.lon+'"><img src="img/icon-map.png"></a>&nbsp;';
+					urls += '<a href="ranges?lat='+json.lat+'&lon='+json.lon+'"><img src="img/icon-ip.png"></a>&nbsp;';
+					urls += '<a href="javascript://" onclick="deleteLocation(this,'+json.lat+','+json.lon+')"><img src="img/no.png"></a>';
+					tr.append($('<td>').html(urls));
+					$('#favorited_loc').append(tr);
+					$('#favloc_cnt').text(parseInt($('#favloc_cnt').text()) + 1);
+					return;
+				}
+				var trs = $('#favorited_loc').find('tr');
+				for (var i = 0; i < trs.length; i++)
+				{
+					var tds = $(trs[i]).find('td');
+					if ((tds[0].textContent == json.lat.toString()) && (tds[1].textContent == json.lon.toString()))
+					{
+						tds[2].textContent = json.cmt;
+						break;
+					}
+				}
+			}).fail(onFail);
+		}
+	}).fail(onFail);
+}
+
+function deleteLocation(e, lat, lon)
+{
+	$(e).find('img').attr('src', '%theme_ajax%');
+	var onFail = function(jqXHR, textStatus, errorThrown)
+	{
+		$(e).find('img').attr('src', 'img/no.png');
+		alert('%l10n_err_data%');
+	};
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return;
+		} else {
+			var data = '';
+			data += '&token=' + encodeURIComponent(json.token);
+			data += '&lat=' + lat;
+			data += '&lon=' + lon;
+			$.get('user.php?a=delloc' + data, function(json)
+			{
+				if (!json.result)
+				{
+					$(e).find('img').attr('src', 'img/no.png');
+					alert(errorStr(json.error));
+					return;
+				}
+				$(e).parent().parent().remove();
+				$('#favloc_cnt').text(parseInt($('#favloc_cnt').text()) - 1);
+				if (parseInt($('#favloc_cnt').text()) == 0)
+					$('#favorited_loc').html('<tr><td colspan=4>%l10n_user_no_loc%</td></tr>');
+			}).fail(onFail);
+		}
+	}).fail(onFail);
+}
+
+function modifyLocation(e)
+{
+	var tds = $(e).find('td');
+	$('#floclat').val($(tds[0]).text());
+	$('#floclon').val($(tds[1]).text());
+	$('#floccmt').val($(tds[2]).text());
+}
+
+function createInvite()
+{
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return;
+		} else {
+			var data = '';
+			data += '&token=' + encodeURIComponent(json.token);
+			data += '&level=' + $('#invlevel').val();
+			$.get('user.php?a=createinv' + data, function(json)
+			{
+				if (!json.result)
+				{
+					alert(errorStr(json.error));
+					return;
+				}
+				ProfileInfo.invites--;
+				getInvitesInfo();
+			}).fail(simpleFail);
+		}
+	}).fail(simpleFail);
+}
+
+function updateInvite()
+{
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return;
+		} else {
+			var checked = $('.invchk:checked').parent().parent().children(':nth-child(4)');
+			for (var i = 0; i < checked.length; i++)
+			{
+				var postdata = '';
+				postdata += 'token=' + encodeURIComponent(json.token);
+				postdata += '&invite=' + $(checked[i]).text();
+				postdata += '&level=' + $('#invlevel').val();
+				$.post('user.php?a=updateinv', postdata, function(json)
+				{
+					if (!json.result)
+					{
+						alert(errorStr(json.error));
+						return;
+					}
+					getInvitesInfo();
+				}).fail(simpleFail);
+			}
+			$('#invchkall').prop('checked', false);
+		}
+	}).fail(simpleFail);
+}
+
+function deleteInvite()
+{
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return;
+		} else {
+			var checked = $('.invchk:checked').parent().parent().children(':nth-child(4)');
+			for (var i = 0; i < checked.length; i++)
+			{
+				var postdata = '';
+				postdata += 'token=' + encodeURIComponent(json.token);
+				postdata += '&invite=' + $(checked[i]).text();
+				$.post('user.php?a=deleteinv', postdata, function(json)
+				{
+					if (!json.result)
+					{
+						alert(errorStr(json.error));
+						return;
+					}
+					ProfileInfo.invites++;
+					getInvitesInfo();
+				}).fail(simpleFail);
+			}
+			$('#invchkall').prop('checked', false);
+		}
+	}).fail(simpleFail);
+}
+
+function getInvitesInfo()
+{
+	$.post('user.php?a=myinvites', '', function(json)
+	{
+		var table = $('#invtable');
+		table.empty();
+
+		$('#invcount').text(ProfileInfo.Level < 3 ? ProfileInfo.invites : '%l10n_str_unlimited%');
+
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return;
+		}
+		if (json.data.length > 0)
+		{
+			for (var i in json.data)
+			{
+				var inv = json.data[i];
+
+				var invite = inv['invite'];
+				var nick = inv['nick'];
+				if (nick) invite = '<s>'+invite+'</s>';
+
+				var tr1 = $('<tr>').append($('<td>').html('<input type=checkbox class=invchk>'))
+							.append($('<td>').text(inv['time']))
+							.append($('<td>').text(inv['regdate']))
+							.append($('<td>').html(invite))
+							.append($('<td>').text(levelToText(inv['level'])))
+							.append($('<td>').text(nick));
+
+				table.append(tr1);
+			}
+		}
+		else
+		{
+			table.html('<tr><td colspan=6>%l10n_user_no_inv%</td></tr>');
+		}
+	}).fail(function(jqXHR, textStatus, errorThrown) {
+		alert('%l10n_err_data%');
+	});
+}
+
+function editNick()
+{
+	if ($('#nickeditor').css('display') == 'none')
+	{
+		$('#nicklabel').hide();
+		$('#nickeditor').show();
+		$('#nickedit').val(ProfileInfo.Nickname).focus();
+	}
+	else
+	{
+		$('#nickeditor').hide();
+		$('#nicklabel').show();
+	}
+}
+
+function changeNick()
+{
+	var newnick = $('#nickedit').val();
+	$('#nickeditor').children().prop('disabled', true);
+	var onRelease = function()
+	{
+		$('#nickeditor').children().prop('disabled', false);
+	};
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return onRelease();
+		} else {
+			var postdata = '';
+			postdata += 'token=' + encodeURIComponent(json.token);
+			postdata += '&nick=' + encodeURIComponent(newnick);
+			$.post('user.php?a=changenick', postdata, function(json)
+			{
+				if (!json.result)
+				{
+					alert(errorStr(json.error));
+					return onRelease();
+				} else {
+					alert("%l10n_user_nick_changed%");
+					location.reload(true);
+				}
+			}).fail(simpleFail);
+		}
+	}).fail(simpleFail);
+}
+
+function changePassword()
+{
+	var pass = $('#win_newpass [name=password]').val();
+	if (! (pass == $('#win_newpass [name=password2]').val())) {
+		alert("%l10n_user_password_diff%");
+		return;
+	}
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return;
+		} else {
+			var postdata = '';
+			postdata += 'token=' + encodeURIComponent(json.token);
+			postdata += '&password=' + encodeURIComponent(pass);
+			$.post('user.php?a=changepass', postdata, function(json)
+			{
+				if (!json.result)
+				{
+					alert(errorStr(json.error));
+					return;
+				} else {
+					alert("%l10n_user_password_changed%");
+					hideModal();
+				}
+			}).fail(simpleFail);
+		}
+	}).fail(simpleFail);
+	return;
+}
+
+function createApiKey(type)
+{
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return;
+		} else {
+			var postdata = '';
+			postdata += 'token=' + encodeURIComponent(json.token);
+			postdata += '&type=' + type;
+			$.post('user.php?a=createapikey', postdata, function(json)
+			{
+				if (!json.result)
+				{
+					alert(errorStr(json.error));
+					return;
+				}
+				if (json.data.r) ProfileRAPI = json.data.r;
+				if (json.data.w) ProfileWAPI = json.data.w;
+				revealSens($('#sens_chk').prop('checked'));
+			}).fail(simpleFail);
+		}
+	}).fail(simpleFail);
+}
+
+function switchTab(num)
+{
+	$('.userTabActive').prop('class', 'userTab');
+	$('#tab'+num+'b').prop('class', 'userTabActive');
+	for (var i = 1; i <= 10; i++)
+	{
+		if (i == num) { $('#tab'+i).show(); } else { $('#tab'+i).hide(); };
+	}
+	switch (num)
+	{
+		case 3: getMyUploads();
+		break;
+		case 4: getMyFavorites(); getMyLocations();
+		break;
+		case 5: getInvitesInfo();
+		break;
+		case 6: $('td#stat_em')[0].click();
+		break;
+	}
+}
+
+function appendRow(rowid, idx, p1, p2, tt, of, th)
+{
+	var td1 = $((th ? '<th>' : '<td>')).text(p1);
+	var td2 = $((th ? '<th>' : '<td>')).text(p2);
+	if (tt) td2.css('font-family', 'monospace');
+	if (of && (p2.length > 64))
+	{
+		td2.css('max-width', '700px');
+		td2.css('overflow-x', 'scroll');
+	}
+	var tr = $('<tr>');
+	tr.append(td1);
+	tr.append(td2);
+	$('#'+rowid).append(tr);
+}
+
+function parsestat(st, d)
+{
+	if(!d.stat.data) return;
+	
+	if (typeof d.stat.top == 'number')
+	{
+		$('#sttot').text('('+d.stat.total+')');
+		$('#stcnt').text('(%l10n_str_top%'+d.stat.top+')');
+	} else {
+		var total = 0;
+		for (var i = 0; i < d.stat.data.length; i++)
+		{
+			total += d.stat.data[i][0];
+		}
+		$('#sttot').text('('+total+')');
+		$('#stcnt').text('('+d.stat.data.length+')');
+	}
+	var tt = (st == 'stbss' || st == 'stwps');
+	var of = (st == 'stauth');
+	for (var i = 0; i < d.stat.data.length; i++)
+	{
+		appendRow('stat', i, d.stat.data[i][0], d.stat.data[i][1], tt, of);
+	}
+}
+
+function loadstat(e, st)
+{
+	if (stLoading) return;
+
+	stLoading = true;
+	$('td#stat_em').removeClass('stat_sel');
+	e.className = 'stat_sel';
+	$('.st1').show();
+	$('#stval').text('%l10n_stat_loading%');
+	$('#sttot').empty();
+	$('#stcnt').empty();
+	$('#stat').html('<tr><td></td><td><img src="img/loading.gif"></td></tr>');
+	$.get('user.php?a=' + st, function(d)
+	{
+		stLoading = false;
+		if (d.result)
+		{
+			$('#stat').empty();
+			switch (st)
+			{
+				case 'stat':
+				$('#stval').text('%l10n_tbl_summary%');
+				appendRow('stat', 0, d.stat.total, '%l10n_tbl_your_total%');
+				appendRow('stat', 1, d.stat.bssids, '%l10n_tbl_with_bssid%');
+				appendRow('stat', 2, d.stat.uniqbss, '%l10n_tbl_uniq_bssid%');
+				appendRow('stat', 3, d.stat.onmap, '%l10n_tbl_on_map%');
+				break;
+				case 'stcmt':
+				$('#stval').text('%l10n_stat_comments%');
+				parsestat(st, d);
+				break;
+				case 'stdev':
+				$('#stval').text('%l10n_stat_devices_cap%');
+				parsestat(st, d);
+				break;
+				case 'stport':
+				$('#stval').text('%l10n_stat_ports%');
+				parsestat(st, d);
+				break;
+				case 'stauth':
+				$('#stval').text('%l10n_stat_auth_cap%');
+				parsestat(st, d);
+				break;
+				case 'stbss':
+				$('#stval').text('%l10n_stat_bssids_cap%');
+				parsestat(st, d);
+				break;
+				case 'stess':
+				$('#stval').text('%l10n_stat_essids_cap%');
+				parsestat(st, d);
+				break;
+				case 'stsec':
+				$('#stval').text('%l10n_stat_security_cap%');
+				parsestat(st, d);
+				break;
+				case 'stkey':
+				$('#stval').text('%l10n_stat_wifikey_cap%');
+				parsestat(st, d);
+				break;
+				case 'stwps':
+				$('#stval').text('%l10n_stat_wpspin_cap%');
+				parsestat(st, d);
+				break;
+				case 'stdns':
+				$('#stval').text('%l10n_stat_dns_cap%');
+				parsestat(st, d);
+				break;
+				case 'stsid':
+				$('#stval').text('%l10n_stat_users_cap%');
+				parsestat(st, d);
+				break;
+			}
+		} else {
+			$('#stval').text('%l10n_no_data%');
+			$('#stat > tr > :nth-child(2)').text(errorStr(d.error));
+		}
+	}).fail(function(jqXHR, textStatus, errorThrown) {
+		$('#stval').text('%l10n_no_data%');
+		$('#stat > tr > :nth-child(2)').text('%l10n_err_data%');
+		stLoading = false;
+	});
+}
+
+function btnShowLoad(btn, load)
+{
+	if (load)
+	{
+		btn.hide();
+		btn.next().show();
+	}
+	else
+	{
+		btn.show();
+		btn.next().hide();
+	}
+}
+
+function queryAP(e)
+{
+	var id = $('input[name=id]', e).val();
+	var data = '';
+	data += '&id=' + id;
+	var btn = $('input[type=submit]', e);
+	btnShowLoad(btn, true);
+	$.get('3wifi.php?a=queryall' + data, function(json)
+	{
+		btnShowLoad(btn, false);
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+		}
+		else
+		{
+			var str = '';
+			for (s in json.data)
+			{
+				str += s + ': ' + json.data[s] + "\n";
+			}
+			if (json.uploaders.length > 0)
+			{
+				str += "\nuploaders:\n";
+				for (var i = 0; i < json.uploaders.length; i++)
+				{
+					for (s in json.uploaders[i])
+					{
+						str += s + ': ' + json.uploaders[i][s] + "\n";
+					}
+				}
+			}
+			if (json.stars.length > 0)
+			{
+				str += "\nstars:\n";
+				for (var i = 0; i < json.stars.length; i++)
+				{
+					for (s in json.stars[i])
+					{
+						str += s + ': ' + json.stars[i][s] + "\n";
+					}
+				}
+			}
+			alert(str);
+		}
+		return false;
+	}).fail(simpleFail);
+	return false;
+}
+
+function deleteAP(e)
+{
+	var id = $('input[name=id]', e).val();
+	var btn = $('input[type=submit]', e);
+	btnShowLoad(btn, true);
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return false;
+		} else {
+			var data = '';
+			data += '&token=' + encodeURIComponent(json.token);
+			data += '&id=' + id;
+			$.get('3wifi.php?a=delete' + data, function(json)
+			{
+				btnShowLoad(btn, false);
+				if (!json.result)
+				{
+					alert(errorStr(json.error));
+					return false;
+				}
+				else
+				{
+					alert("%l10n_msg_delete_success%");
+				}
+			}).fail(simpleFail);
+		}
+	}).fail(simpleFail);
+	return false;
+}
+
+function geolocate(e)
+{
+	var bssid = $('input[name=bssid]', e).val();
+	var lat = $('input[name=lat]', e).val();
+	var lon = $('input[name=lon]', e).val();
+	var rem = $('input[name=remove]', e).prop('checked');
+	var btn = $('input[type=submit]', e);
+	btnShowLoad(btn, true);
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return false;
+		} else {
+			var data = '';
+			data += '&token=' + encodeURIComponent(json.token);
+			data += '&bssid=' + encodeURIComponent(bssid);
+			data += '&lat=' + lat;
+			data += '&lon=' + lon;
+			if (rem)
+				data += '&remove=1';
+			$.get('3wifi.php?a=geoupdate' + data, function(json)
+			{
+				btnShowLoad(btn, false);
+				if (!json.result)
+				{
+					alert(errorStr(json.error));
+					return false;
+				}
+				else
+				{
+					alert(json.lat + ' ' + json.lon + ' (' + json.provider + ')');
+				}
+			}).fail(simpleFail);
+		}
+	}).fail(simpleFail);
+	return false;
+}
+
+function processUser(json)
+{
+	if (!json.result)
+	{
+		alert(errorStr(json.error));
+	}
+	else
+	{
+		$('input[name=login]').val(json.login);
+		$('input[name=nick]').val(json.nick);
+		$('input[name=reg_date]').val(json.regdate);
+		$('select#user_level').val(json.level);
+		if (!json.ban_reason)
+			json.ban_reason = '';
+		$('select#ban_reason').val(json.ban_reason);
+		$('input[name=pass]').val('');
+		$('input[name=visited]').val(json.lastupdate);
+		$('#inv_created').text(json.inv_invited + '/' + json.inv_created);
+		$('input[name=invites]').val(json.inv_left);
+		$('input[name=refuser]').val(json.refuser);
+		mgmt_uid = json.uid;
+		mgmt_puid = json.puid;
+	}
+}
+
+function getUserByInvite(e)
+{
+	var invite = $('input[name=invite]', $(e).closest('form')).val();
+	var data = '';
+	data += '&invite=' + encodeURIComponent(invite);
+	var btn = $(e);
+	btnShowLoad(btn, true);
+	$.get('user.php?a=getuser' + data, function(json)
+	{
+		btnShowLoad(btn, false);
+		processUser(json);
+		return false;
+	}).fail(simpleFail);
+	return false;
+}
+
+function userBoxHideCheck(e)
+{
+	var box = $('.hint');
+	if (!box.is(e.target) && box.has(e.target).length === 0)
+	{
+		if ($('input[name=login]').is(e.target))
+			return;
+		userBoxHide();
+	}
+}
+
+function userBoxHide()
+{
+	$(document).unbind('mouseup', userBoxHideCheck);
+	$('.hint').hide();
+}
+
+function userBoxSelect(e)
+{
+	var el = (e.target.tagName == 'B' ? e.target.parentNode : e.target);
+	$('input[name=login]').val($(el).prop('data-login'));
+	getUserById($(el).prop('data-uid'), e);
+	userBoxHide();
+}
+
+function searchUsers()
+{
+	var data = '';
+	data += '&query=' + encodeURIComponent($('input[name=login]').val());
+	$.get('user.php?a=finduser' + data, function(json)
+	{
+		var box = $('.hint');
+		box.empty();
+		if (json.users.length > 0)
+		{
+			box.css('top', ($('.wrapper input').height() + 6) + 'px');
+			for (var i = 0; i < json.users.length; i++)
+			{
+				var div = $('<div>');
+				div.prop('class', 'hval');
+				div.prop('data-uid', json.users[i].uid);
+				div.prop('data-login', json.users[i].login);
+				div.html(json.users[i].html);
+				div.click(userBoxSelect);
+				box.append(div);
+			}
+			$(document).mouseup(userBoxHideCheck);
+			box.show();
+		}
+		else
+			userBoxHide();
+	}).fail(simpleFail);
+}
+
+function userBoxShow()
+{
+	if (userBoxTimeout != null)
+		clearTimeout(userBoxTimeout);
+	if ($('input[name=login]').val() == '')
+	{
+		userBoxHide();
+		return;
+	}
+	userBoxTimeout = setTimeout(searchUsers, 500);
+}
+
+function getUserById(uid, e)
+{
+	var data = '';
+	data += '&uid=' + encodeURIComponent(uid);
+	var btn = $(e);
+	btnShowLoad(btn, true);
+	$.get('user.php?a=getuser' + data, function(json)
+	{
+		btnShowLoad(btn, false);
+		processUser(json);
+		return false;
+	}).fail(simpleFail);
+	return false;
+}
+
+function getUserPrev(e)
+{
+	if ($('input[name=nick]').val() == '')
+		return false;
+
+	return getUserById(mgmt_uid - 1, e);
+}
+
+function getUserNext(e)
+{
+	if ($('input[name=nick]').val() == '')
+		return false;
+
+	return getUserById(mgmt_uid + 1, e);
+}
+
+function getUserParent(e)
+{
+	if ($('input[name=refuser]').val() == '')
+		return false;
+
+	return getUserById(mgmt_puid, e);
+}
+
+function setUserAccount(e, opt)
+{
+	if ($('input[name=nick]').val() == '')
+		return false;
+
+	var btn = $(e);
+	btnShowLoad(btn, true);
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return false;
+		} else {
+			var ban_reason = $('select#ban_reason').val();
+			var postdata = '';
+			postdata += 'token=' + encodeURIComponent(json.token);
+			postdata += '&uid=' + mgmt_uid;
+			if (opt == 'level')
+			{
+				postdata += '&level=' + $('select#user_level').val();
+				if (ban_reason != '')
+					postdata += '&ban_reason=' + ban_reason;
+			}
+			else if (opt == 'view')
+			{
+				postdata += '&view=1';
+			}
+			else
+			{
+				postdata += '&invites=' + $('input[name=invites]').val();
+			}
+			$.post('user.php?a=setuser', postdata, function(json)
+			{
+				btnShowLoad(btn, false);
+				if (!json.result)
+				{
+					alert(errorStr(json.error));
+				}
+				else
+				{
+					if (opt == 'view')
+						window.open('#inv', '_blank').focus();
+					else
+						alert("%l10n_msg_user_set_success%");
+				}
+				return false;
+			}).fail(simpleFail);
+		}
+	}).fail(simpleFail);
+	return false;
+}
+
+function resetUser(e)
+{
+	var login = $('input[name=login]', e).val();
+	var btn = $('input[type=submit]', e);
+	btnShowLoad(btn, true);
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return false;
+		} else {
+			var data = '';
+			data += '&token=' + encodeURIComponent(json.token);
+			data += '&login=' + encodeURIComponent(login);
+			$.get('user.php?a=resetpass' + data, function(json)
+			{
+				btnShowLoad(btn, false);
+				if (!json.result)
+				{
+					alert(errorStr(json.error));
+				}
+				else
+				{
+					$('input[name=pass]').val(json.pass);
+					alert("%l10n_msg_user_reset_success%");
+				}
+				return false;
+			}).fail(simpleFail);
+		}
+	}).fail(simpleFail);
+	return false;
+}
+
+</script>
+</head>
+
+<body>
+<h2 align=center><span class=header_cap>%l10n_msg_user% %nick%</span></h2>
+
+<div class=usetTabContainer>
+	<div class=userTabs>
+		<div id=tab1b class=userTabActive dir=ltr><a href="#info" onclick="switchTab(1)">%l10n_tab_profile%</a></div>
+		<div id=tab2b class=userTab dir=ltr style="display: none"><a href="#admin" onclick="switchTab(2)">%l10n_tab_admin%</a></div>
+		<div id=tab3b class=userTab dir=ltr><a href="#uploads" onclick="switchTab(3)">%l10n_tab_uploads%</a></div>
+		<div id=tab4b class=userTab dir=ltr><a href="#fave" onclick="switchTab(4)">%l10n_tab_favorites%</a></div>
+		<div id=tab5b class=userTab dir=ltr><a href="#inv" onclick="switchTab(5)">%l10n_tab_invites%</a></div>
+		<div id=tab6b class=userTab dir=ltr><a href="#stats" onclick="switchTab(6)">%l10n_tab_mystats%</a></div>
+	</div>
+	<div class=userCodeContainer>
+		<div id=tab1 class=userCode dir=ltr style="display: block;">
+			<table>
+			<tr><td>%l10n_str_login%</td><td id="loginField"></td></tr>
+			<tr><td>%l10n_str_nick_full%</td><td>
+				<span id=nicklabel>%nick% <a href="javascript://" onclick="editNick()">(%l10n_str_change%)</a></span>
+				<span id=nickeditor style="display:none"><input type=text id=nickedit />&nbsp;<button onclick="changeNick()">%l10n_btn_save%</button>&nbsp;<button onclick="editNick()">%l10n_btn_cancel%</button></span>
+			</td></tr>
+			<tr><td>%l10n_str_reg_date%</td><td>%regdate%</td></tr>
+			<tr><td>%l10n_str_level%</td><td id=userlevel></td></tr>
+			<tr><td>%l10n_str_pass%</td><td><a href="javascript://" onclick="showModal('#win_newpass')">%l10n_btn_change%</a></td></tr>
+			<tr><td>%l10n_str_apikey_r%</td><td><input type="text" style="width: 34ch; font-family: monospace" id="rapikey" readonly /> <a href="javascript://" onclick="createApiKey(1)">(%l10n_str_get_new%)</a></td></tr>
+			<tr><td>%l10n_str_apikey_w%</td><td><input type="text" style="width: 34ch; font-family: monospace" id="wapikey" readonly /> <a href="javascript://" onclick="createApiKey(2)">(%l10n_str_get_new%)</a></td></tr>
+			<tr><td>%l10n_str_inviter%</td><td>%refuser%</td></tr>
+			<tr><td colspan=2></td></tr>
+			<tr><td>%l10n_str_theme%</td><td><select name="themes"><option value="">3WiFi Classic</option></select> <small>(%l10n_str_cookies%)</small></td></tr>
+			<tr><td colspan=2><input type="checkbox" id="sens_chk" onclick="revealSens($(this).prop('checked'))" /> <label for="sens_chk">%l10n_str_show_sens%</label></td></tr>
+			</table>
+		</div>
+		<div id=tab2 class=userCode dir=ltr style="display: none;">
+			<form onsubmit="return queryAP(this)">
+			<fieldset>
+			<legend>%l10n_msg_full_query%</legend>
+			<label>ID: <input type="number" name="id" min="1" required="required"/></label>
+			<input type="submit" value="%l10n_btn_query%"/><img src="%theme_ajax%" style="display: none;"/>
+			</fieldset>
+			</form>
+			<br/>
+
+			<form onsubmit="return deleteAP(this)">
+			<fieldset>
+			<legend>%l10n_msg_delete_aps%</legend>
+			<label>ID: <input type="number" name="id" min="1" required="required"/></label>
+			<input type="submit" value="%l10n_btn_delete%"/><img src="%theme_ajax%" style="display: none;"/>
+			</fieldset>
+			</form>
+			<br/>
+
+			<form onsubmit="return geolocate(this)">
+			<fieldset>
+			<legend>%l10n_msg_update_geo%</legend>
+			<table>
+			<tr><td><label for="bssid">%l10n_str_bssid%</label></td>
+			<td><input type="text" name="bssid" id="bssid" pattern="([0-9A-Fa-f]{2}[:-]?){5}[0-9A-Fa-f]{2}" required="required"/></td><td> (%l10n_bssid_format%)</td></tr>
+			<tr><td><label for="lat">%l10n_str_lat%</label></td>
+			<td><input type="number" name="lat" id="lat" min="-90" max="90" step="0.00000001" value="0"/></td><td>° [-90; 90]</td></tr>
+			<tr><td><label for="lon">%l10n_str_lon%</label></td>
+			<td><input type="number" name="lon" id="lon" min="-180" max="180" step="0.00000001" value="0"/></td><td>° [-180; 180]</td></tr>
+			<tr><td colspan="3">%l10n_msg_geo_def_zero%</td></tr>
+			<tr><td colspan="3"><input type="checkbox" name="remove" id="remove" /> <label for="remove">%l10n_str_geo_remove%</label></td></tr>
+			</table>
+			<input type="submit" value="%l10n_btn_update%"/><img src="%theme_ajax%" style="display: none;"/>
+			</fieldset>
+			</form>
+			<br/>
+
+			<form onsubmit="return resetUser(this)">
+			<fieldset>
+			<legend>%l10n_msg_user_mgmt%</legend>
+			<table class=userMgmt>
+			<tr><td><label for="invite">%l10n_str_invite%</label></td>
+			<td><input type="text" name="invite" id="invite" pattern=".{12,12}"/></td><td><input type="button" value="%l10n_btn_get%" onclick="return getUserByInvite(this)"/><img src="%theme_ajax%" style="display: none;"/></td></tr>
+			<tr><td><label for="login">%l10n_str_login%</label></td>
+			<td><span class=wrapper>
+				<input type="text" name="login" id="login" pattern=".{5,30}" onkeyup="userBoxShow()" required="required"/>
+				<span class=hint style="display: none; width: 320px; max-height: 300px; overflow-y: auto"></span>
+			</span></td><td><input type="button" value="&lt;" onclick="return getUserPrev(this)"/><img src="%theme_ajax%" style="display: none;"/><input type="button" value="&gt;" onclick="return getUserNext(this)"/><img src="%theme_ajax%" style="display: none;"/></td></tr>
+			<tr><td><label for="nick">%l10n_str_nick_full%</label></td>
+			<td><input type="text" name="nick" id="nick" readonly /></td></tr>
+			<tr><td>%l10n_str_reg_date%</td>
+			<td><input type="text" name="reg_date" id="reg_date" readonly /></td></tr>
+			<tr><td>%l10n_str_level%</td>
+			<td><select id="user_level"></select>&nbsp;<select id="ban_reason"></select></td><td><input type="button" value="%l10n_btn_save%" onclick="return setUserAccount(this, 'level')"/><img src="%theme_ajax%" style="display: none;"/></td></tr>
+			<tr><td><label for="pass">%l10n_str_pass%</label></td>
+			<td><input type="text" name="pass" id="pass" readonly /></td><td><input type="submit" value="%l10n_btn_reset%"/><img src="%theme_ajax%" style="display: none;"/></td></tr>
+			<tr><td>%l10n_str_visited%</td>
+			<td><input type="text" name="visited" id="visited" readonly /></td></tr>
+			<tr><td>%l10n_str_inv_invited_created%</td>
+			<td><a href="#" id="inv_created" onclick="return setUserAccount(null, 'view')">0/0</a></td></tr>
+			<tr><td><label for="invites">%l10n_str_inv_left%</label></td>
+			<td colspan=2><input type="number" name="invites" id="invites" min="0" max="100" step="1"/>&nbsp;<input type="button" value="%l10n_btn_save%" onclick="return setUserAccount(this, 'invites')"/><img src="%theme_ajax%" style="display: none;"/></td></tr>
+			<tr><td><label for="refuser">%l10n_str_inviter%</label></td>
+			<td><input type="text" name="refuser" id="refuser" readonly /></td><td><input type="button" value="%l10n_btn_get%" onclick="return getUserParent(this)"/><img src="%theme_ajax%" style="display: none;"/></td></tr>
+			</table>
+			</fieldset>
+			</form>
+			<br/>
+		</div>
+		<div id=tab3 class=userCode dir=ltr style="display: none;">
+			<div style="max-height: 100%; overflow: auto">
+				<p style="margin-top: 7px">%l10n_user_last_uploads% <a href="javascript://" onclick="myDownload()">%l10n_user_download_all%</a>.</p>
+				<table class=st1 align=center>
+				<thead style="white-space: nowrap">
+				<tr><th>%l10n_tbl_date%</th><th>%l10n_tbl_comment%</th><th>%l10n_tbl_ipport%</th><th>%l10n_tbl_auth%</th><th>%l10n_tbl_dev%</th><th>%l10n_tbl_bssid%</th><th>%l10n_tbl_essid%</th><th>%l10n_tbl_security%</th><th>%l10n_tbl_wifikey%</th><th>%l10n_tbl_wpspin%</th><th>%l10n_tbl_links%</th></tr>
+				</thead>
+				<tbody id=uploaded style="font-size: 12px">
+				</tbody>
+				</table>
+			</div>
+		</div>
+		<div id=tab4 class=userCode dir=ltr style="display: none;">
+			<table>
+			<tr><td style="padding: 4 8 4 8" colspan=2>%l10n_user_favorited_aps% (<span id=favap_cnt>0</span> %l10n_str_of% 200).</td></tr>
+			<tr><td style="vertical-align: top" colspan=2>
+				<table class=st1>
+				<thead style="white-space: nowrap">
+				<tr><th>%l10n_tbl_date%</th><th>%l10n_tbl_comment%</th><th>%l10n_tbl_iprange%</th><th>%l10n_tbl_bssid%</th><th>%l10n_tbl_essid%</th><th>%l10n_tbl_security%</th><th>%l10n_tbl_wifikey%</th><th>%l10n_tbl_wpspin%</th><th>%l10n_tbl_links%</th></tr>
+				</thead>
+				<tbody id=favorited_aps style="font-size: 12px">
+				</tbody>
+				</table>
+			</td></tr>
+			<tr><td style="padding: 4 8 4 8" colspan=2>%l10n_user_favorited_loc% (<span id=favloc_cnt>0</span> %l10n_str_of% 100).</td></tr>
+			<tr><td style="vertical-align: top">
+				<table class=st1>
+				<thead style="white-space: nowrap">
+				<tr><th>%l10n_tbl_lat%</th><th>%l10n_tbl_lon%</th><th>%l10n_tbl_comment%</th><th>%l10n_tbl_links%</th></tr>
+				</thead>
+				<tbody id=favorited_loc style="font-size: 12px">
+				</tbody>
+				</table>
+			</td><td style="vertical-align: top">
+				<table class=graphbkg style="margin-left: 16px; padding: 8">
+				<tr><td align=right>%l10n_str_lat%</td><td><input id=floclat type="number" min="-90" max="90" step="0.00000001" /></td></tr>
+				<tr><td align=right>%l10n_str_lon%</td><td><input id=floclon type="number" min="-180" max="180" step="0.00000001" /></td></tr>
+				<tr><td align=right>%l10n_str_comment%</td><td><input id=floccmt type=text /></td></tr>
+				<tr><td align=right></td><td><button onclick="createLocation()">%l10n_btn_add_save%</button></td></tr>
+				</table>
+			</td></tr>
+			</table>
+		</div>
+		<div id=tab5 class=userCode dir=ltr style="display: none;">
+			<div style="display: flex">
+				<div style="max-height: 100%; overflow: auto">
+					<table class=st1>
+					<thead>
+					<tr><th><input type=checkbox id=invchkall onclick="$('.invchk').prop('checked', this.checked)"></th><th>%l10n_tbl_inv_date%</th><th>%l10n_tbl_reg_date%</th><th>%l10n_tbl_inv_code%</th><th>%l10n_tbl_level%</th><th>%l10n_tbl_nick%</th></tr>
+					</thead>
+					<tbody id=invtable>
+					</tbody>
+					</table>
+				</div>
+				<div class=graphbkg style="margin-left: 16px; padding: 8">
+					<table>
+					<tr><td colspan=2>%l10n_str_inv_left% <span id=invcount></span></td></tr>
+					<tr><td align=right><select id=invlevel></select></td><td><button onclick="createInvite()">%l10n_btn_add%</button></td></tr>
+					<tr><td align=right><button onclick="updateInvite()">%l10n_btn_save%</button></td><td><button onclick="deleteInvite()">%l10n_btn_delete%</button></td></tr>
+					</table>
+				</div>
+			</div>
+		</div>
+		<div id=tab6 class=userCode dir=ltr style="display: none; padding: 0">
+			<table class=st2 cellspacing=0>
+			<tr><td id=stat_em onclick="loadstat(this,'stat')" style="border-top: none">%l10n_stat_summary%</td>
+				<td rowspan=11 style="width: 100%; vertical-align: top; padding: 0">
+				<div style="max-height: 396px; overflow-y: auto">
+					<table class=st1 style="display: none;">
+					<tbody>
+					<tr><th>%l10n_tbl_count% <span id=sttot></span></th><th><span id=stval>%l10n_tbl_value%</span> <span id=stcnt></span></th></tr>
+					</tbody>
+					<tbody id=stat></tbody>
+					</table>
+				</div>
+				</td></tr>
+			<tr><td id=stat_em onclick="loadstat(this,'stcmt')">%l10n_stat_comments%</td></tr>
+			<tr><td id=stat_em onclick="loadstat(this,'stdev')">%l10n_stat_devices%</td></tr>
+			<tr><td id=stat_em onclick="loadstat(this,'stport')">%l10n_stat_ports%</td></tr>
+			<tr><td id=stat_em onclick="loadstat(this,'stauth')">%l10n_stat_auth%</td></tr>
+			<tr><td id=stat_em onclick="loadstat(this,'stbss')">%l10n_stat_bssids%</td></tr>
+			<tr><td id=stat_em onclick="loadstat(this,'stess')">%l10n_stat_essids%</td></tr>
+			<tr><td id=stat_em onclick="loadstat(this,'stsec')">%l10n_stat_security%</td></tr>
+			<tr><td id=stat_em onclick="loadstat(this,'stkey')">%l10n_stat_wifikey%</td></tr>
+			<tr><td id=stat_em onclick="loadstat(this,'stwps')">%l10n_stat_wpspin%</td></tr>
+			<tr><td id=stat_em onclick="loadstat(this,'stdns')">%l10n_stat_dns%</td></tr>
+			</table>
+		</div>
+	</div>
+</div>
+</body>

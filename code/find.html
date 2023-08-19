@@ -1,0 +1,419 @@
+<title>%l10n_title_find%</title>
+
+<head>
+<script type="text/javascript">
+function appendTable(table, tag, fields, flags)
+{
+	var tr = $('<tr>'), tf;
+	$('#'+table).append(tr);
+	for (var i = 0; i < fields.length; i++)
+	{
+		tf = $(tag);
+		var raw = false;
+		var cs = 1;
+		if (typeof flags == 'object' && typeof flags[i] == 'object' && flags[i] != null)
+		{
+			if (flags[i].raw) raw = true;
+			if (flags[i].mono) tf.css('font-family', 'monospace');
+			if (flags[i].nowrap) tf.css('white-space', 'nowrap');
+			if (flags[i].over) tf.css({"max-width":"200px", "overflow-x":"scroll"});
+			if (flags[i].cs) cs = flags[i].cs;
+		}
+		if (raw) { tf.html(fields[i]); } else { tf.text(fields[i]); }
+		if (cs > 1) tf.attr('colspan', cs);
+		tr.append(tf);
+	}
+}
+function switchLevel(newlevel)
+{
+	if (level == newlevel) return false;
+	level = newlevel;
+	$('#fhead').empty();
+	$('#fdata').empty();
+	var nw = {raw: false, mono: false, nowrap: true, over: false, cs: 1};
+	switch (level)
+	{
+		case 1:
+		$('input[name=bssid]')[0].value = $('input[name=bssid]')[1].value;
+		$('input[name=essid]')[0].value = $('input[name=essid]')[1].value;
+		$('#fuserform').show();
+		$('#fadminform').hide();
+		appendTable('fhead', '<th>',
+		['%l10n_tbl_date%','%l10n_tbl_comment%','%l10n_tbl_iprange%','%l10n_tbl_bssid%','%l10n_tbl_essid%','%l10n_tbl_security%','%l10n_tbl_wifikey%','%l10n_tbl_wpspin%','%l10n_tbl_lat%','%l10n_tbl_lon%','%l10n_tbl_links%'],
+		[null, null, null, null, null, null, null, nw]);
+		break;
+		case 2:
+		$('input[name=bssid]')[1].value = $('input[name=bssid]')[0].value;
+		$('input[name=essid]')[1].value = $('input[name=essid]')[0].value;
+		$('#fuserform').hide();
+		$('#fadminform').show();
+		appendTable('fhead', '<th>',
+		['%l10n_tbl_id%','%l10n_tbl_date%','%l10n_tbl_comment%','%l10n_tbl_ipport%','%l10n_tbl_auth%','%l10n_tbl_dev%','%l10n_tbl_bssid%','%l10n_tbl_essid%','%l10n_tbl_security%','%l10n_tbl_wifikey%','%l10n_tbl_wpspin%','%l10n_tbl_lat%','%l10n_tbl_lon%','%l10n_tbl_links%'],
+		[null, null, null, null, null, nw, null, null, null, null, nw]);
+		break;
+	}
+	return true;
+}
+function buildPages(count, current)
+{
+	if (count <= 1) return '';
+
+	var outer = 4, inner = 3, result = '';
+	for (var i = 1; i <= count; i++)
+	{
+		if (i < count - outer + 1 && current - inner - 1 > outer && i > outer && i < current - inner)
+		{
+			result += '<td>…</td>';
+			i = current - inner;
+		}
+		if (i > outer && current + inner + 1 < count - outer + 1 && i > current + inner && i < count - outer + 1)
+		{
+			result += '<td>…</td>';
+			i = count - outer + 1;
+		}
+		if (i == current)
+		{
+			result += '<th class=swp_sel>'+i+'</th>';
+		} else {
+			result += '<td class=swp onclick="switchPage('+i+')">'+i+'</td>';
+		}
+	}
+	return result;
+}
+function searchGetField(e)
+{
+	return $(e[ProfileInfo.Level < 2 ? 0 : 1]);
+}
+function searchQuery()
+{
+	var bssid = getQueryStringValue('bssid');
+	var essid = getQueryStringValue('essid');
+	var key = getQueryStringValue('key');
+	var wps = getQueryStringValue('pin');
+	var cmt = getQueryStringValue('cmt');
+	var ip = getQueryStringValue('ip');
+	var auth = getQueryStringValue('auth');
+	var dev = getQueryStringValue('dev');
+
+	var usr_query = (bssid != null || essid != null || key != null || wps != null) && ProfileInfo.Level >= 0;
+	var adm_query = (cmt != null || ip != null || auth != null || dev != null || usr_query) && ProfileInfo.Level >= 2;
+
+	var sens = getQueryStringValue('s');
+	var page = getQueryStringValue('p');
+
+	if (usr_query || adm_query)
+	{
+		searchGetField($('input[name=bssid]')).val(bssid != null ? bssid : def_bssid);
+		searchGetField($('input[name=essid]')).val(essid != null ? essid : def_essid);
+		searchGetField($('input[name=key]')).val(key != null ? key : def_key);
+		searchGetField($('input[name=wps]')).val(wps != null ? wps : def_wps);
+		$('input[name=comment]').val(cmt != null ? cmt : def_cmt);
+		$('input[name=ipaddr]').val(ip != null ? ip : def_ip);
+		$('input[name=auth]').val(auth != null ? auth : def_auth);
+		$('input[name=name]').val(dev != null ? dev : def_dev);
+
+		searchGetField($('input[name=sens]')).prop('checked', sens == '1');
+		if (page == null) page = '1';
+		find(parseInt(page));
+	}
+}
+function searchGetQuery(page)
+{
+	var url = [], val;
+	val = searchGetField($('input[name=bssid]')).val(); if (val != def_bssid) url.push('bssid=' + encodeURIComponent(val));
+	val = searchGetField($('input[name=essid]')).val(); if (val != def_essid) url.push('essid=' + encodeURIComponent(val));
+	val = searchGetField($('input[name=key]')).val(); if (val != def_key) url.push('key=' + encodeURIComponent(val));
+	val = searchGetField($('input[name=wps]')).val(); if (val != def_wps) url.push('pin=' + encodeURIComponent(val));
+	val = $('input[name=comment]').val(); if (val != def_cmt) url.push('cmt=' + encodeURIComponent(val));
+	val = $('input[name=ipaddr]').val(); if (val != def_ip) url.push('ip=' + encodeURIComponent(val));
+	val = $('input[name=auth]').val(); if (val != def_auth) url.push('auth=' + encodeURIComponent(val));
+	val = $('input[name=name]').val(); if (val != def_dev) url.push('dev=' + encodeURIComponent(val));
+	if (searchGetField($('input[name=sens]')).prop('checked')) url.push('s=1');
+	if (page > 1) url.push('p=' + page);
+	return url.join('&');
+}
+function searchPushHistory(page)
+{
+	var url = searchGetQuery(page);
+	if (url == "") return;
+
+	url = window.location.pathname + '?' + url;
+	if (typeof window.history != "object") return;
+	history.pushState(null, null, url);
+}
+function switchPage(num)
+{
+	if (num < 1 || num > cnt_pages || num == cur_page) return;
+
+	var pages = buildPages(cnt_pages, num);
+	$('#pages_t').html(pages);
+	$('#pages_b').html(pages);
+	$('input[type=number]').attr('max', cnt_pages);
+	$('input[type=number]').val(num);
+	$('#page_seeker').css('display', (pages == '' ? 'none' : 'inherit'));
+
+	searchPushHistory(num);
+	find(num);
+}
+function find(page)
+{
+	recheckCoordsLock();
+	$($('input[name=page]')[level-1]).val(page);
+
+	var formdata = $($('form')[level-1]).serialize();
+	$('input').prop('disabled', true);
+	$('button').prop('disabled', true);
+	$('#found'+level).empty();
+	$('#fdata').empty();
+	var cols = $('#fhead').children().children().length;
+	appendTable('fdata', '<td>', ['<img src="img/loading.gif">'], [{raw: true, mono: false, nowrap: false, over: false, cs: cols}]);
+
+	$.post('3wifi.php?a=find', formdata, function(d)
+	{
+		if (!d.result)
+		{
+			if (d.error == 'unauthorized')
+			{
+				$('#fdata > tr:first-child > :first-child').html(loginRequireMsg());
+			}
+			else
+			{
+				if (d.error == 'cooldown') showModal('#win_wait');
+				$('#fdata > tr:first-child > :first-child').text(errorStr(d.error));
+			}
+		}
+		else
+		{
+			if (d.found != null)
+			{
+				var res = '%l10n_find_results% '+ d.found +' ('+ d.time.toFixed(2) +' %l10n_find_secs%)';
+				$('#found'+level).text(res);
+			}
+
+			if (d.page != null)
+			{
+				cur_page = d.page.current;
+				cnt_pages = d.page.count;
+				var pages = buildPages(cnt_pages, cur_page);
+				$('#pages_t').html(pages);
+				$('#pages_b').html(pages);
+				$('input[type=number]').attr('max', cnt_pages);
+				$('input[type=number]').val(cur_page);				
+				$('#page_seeker').css('display', (pages == '' ? 'none' : 'inherit'));
+			}
+
+			if (d.data.length > 0)
+			{
+				if (typeof d.data[0].id == 'number' && ProfileInfo.Level > 1)
+				{
+					switchLevel(2);
+					$('#found'+level).text(res);
+				} else {
+					switchLevel(1);
+					$('#found'+level).text(res);
+				}
+				$('#fdata').empty();
+				for (var i = 0; i < d.data.length; i++)
+				{
+					var e = d.data[i];
+					var links = '';
+					if (!isNaN(parseFloat(e.lat)) && !isNaN(parseFloat(e.lon)))
+					{
+						links += '<a href="map?lat='+e.lat+'&lon='+e.lon+'"><img src="img/icon-map.png"></a>&nbsp;';
+						links += '<a href="ranges?lat='+e.lat+'&lon='+e.lon+'&rad=1"><img src="img/icon-ip.png"></a>&nbsp;';
+					}
+					if (typeof e.id != 'number') e.id = 0;
+					links += '<a href="javascript://" onclick="markFav(this,'+e.id+')"><img src="img/icon-fav-'+(e.fav ? 'on' : 'off')+'.png"></a>';
+					var nw = {raw: false, mono: false, nowrap: true, over: false, cs: 1};
+					var mnw = {raw: false, mono: true, nowrap: true, over: false, cs: 1};
+					var mn = {raw: false, mono: true, nowrap: false, over: false, cs: 1};
+					var of = {raw: false, mono: false, nowrap: true, over: true, cs: 1};
+					var rw = {raw: true, mono: false, nowrap: false, over: false, cs: 1};
+					var mrw = {raw: true, mono: true, nowrap: true, over: false, cs: 1};
+					if (e.key.length < 20) of = null;
+					e.lat = String(e.lat).substr(0,9);
+					e.lon = String(e.lon).substr(0,9);
+					e.bssid = encodeHTML(e.bssid, true);
+					if (e.nowifi)
+					{
+						e.bssid += ' <img src="img/icon-nowifi.png" title="%l10n_str_nowifi%"/>';
+					}
+					e.essid = encodeHTML(e.essid, true);
+					if (e.hidden)
+					{
+						e.essid += ' <img src="img/icon-hidden.png" title="%l10n_str_hidden%"/>';
+					}
+					e.key = encodeHTML(e.key, true);
+					if (e.lat == 'none')
+					{
+						e.lat = '%l10n_str_none%';
+						e.lon = '%l10n_str_none%';
+					}
+					else if (e.lat == 'not found')
+					{
+						e.lat = '%l10n_str_notfound%';
+						e.lon = '%l10n_str_notfound%';
+					}
+					switch (level)
+					{
+						case 1:
+						appendTable('fdata', '<td>',
+						[e.time.split(' ')[0], e.comment, e.range, e.bssid, e.essid, e.sec, e.key, e.wps, e.lat, e.lon, links],
+						[mrw, null, mn, mrw, rw, null, rw, mn, nw, nw, rw]);
+						break;
+						case 2:
+						appendTable('fdata', '<td>',
+						[e.id, e.time.split(' ').join('<br>'), e.comment, e.ipport, e.auth, e.name, e.bssid, e.essid, e.sec, e.key, e.wps, e.lat, e.lon, links],
+						[mn, mrw, null, mn, null, null, mrw, rw, null, rw, mn, nw, nw, rw]);
+						break;
+					}
+				}
+			} else {
+				$('#fdata > tr:first-child > :first-child').text('%l10n_find_not_found%.');
+			}
+		}
+		$('input').prop('disabled', false);
+		$('button').prop('disabled', false);
+	}).fail(function(jqXHR, textStatus, errorThrown) {
+		$('#fdata > tr:first-child > :first-child').text('%l10n_err_data%.');
+		$('input').prop('disabled', false);
+		$('button').prop('disabled', false);
+	});
+}
+function markFav(e,id)
+{
+	var onFail = function(jqXHR, textStatus, errorThrown)
+	{
+		alert('%l10n_err_data%');
+	};
+	$.get('user.php?a=token', function(json)
+	{
+		if (!json.result)
+		{
+			alert(errorStr(json.error));
+			return;
+		} else {
+			var data = '';
+			data += '&token=' + encodeURIComponent(json.token);
+			data += '&id=' + id;
+			$.get('user.php?a=fav' + data, function(json)
+			{
+				if (!json.result)
+				{
+					alert(errorStr(json.error));
+					return;
+				}
+				$(e).find('img').attr('src', 'img/icon-fav-'+(json.fav ? 'on' : 'off')+'.png');
+			}).fail(onFail);
+		}
+	}).fail(onFail);
+}
+function insertAtCaret(text)
+{
+	if (typeof lastInp != 'object') return;
+	var txtarea = lastInp;
+	var scrollPos = txtarea.scrollTop;
+	var strPos = 0;
+	var br = ((txtarea.selectionStart || txtarea.selectionStart == '0') ? 
+		"ff" : (document.selection ? "ie" : false ) );
+	if (br == "ie") { 
+		txtarea.focus();
+		var range = document.selection.createRange();
+		range.moveStart ('character', -txtarea.value.length);
+		strPos = range.text.length;
+	}
+	else if (br == "ff") strPos = txtarea.selectionStart;
+
+	var front = (txtarea.value).substring(0,strPos);  
+	var back = (txtarea.value).substring(strPos,txtarea.value.length); 
+	txtarea.value=front+text+back;
+	strPos = strPos + text.length;
+	if (br == "ie") { 
+		txtarea.focus();
+		var range = document.selection.createRange();
+		range.moveStart ('character', -txtarea.value.length);
+		range.moveStart ('character', strPos);
+		range.moveEnd ('character', 0);
+		range.select();
+	}
+	else if (br == "ff") {
+		txtarea.selectionStart = strPos;
+		txtarea.selectionEnd = strPos;
+		txtarea.focus();
+	}
+	txtarea.scrollTop = scrollPos;
+}
+function delCoordCallback()
+{
+}
+function initpage()
+{
+	level = 0;
+	cur_page = 0;
+	cnt_pages = 0;
+	switchLevel(ProfileInfo.Level < 2 ? 1 : 2);
+	$('input[type=number]').keydown(function(e) {
+		if (e.keyCode != 13) return;
+		switchPage(parseInt($('input[type=number]').val()));
+	});
+	$('input[type=text]').blur(function(e) {
+		lastInp = e.currentTarget;
+	});
+	def_bssid = searchGetField($('input[name=bssid]')).val();
+	def_essid = searchGetField($('input[name=essid]')).val();
+	def_key = searchGetField($('input[name=key]')).val();
+	def_wps = searchGetField($('input[name=wps]')).val();
+	def_cmt = $('input[name=comment]').val();
+	def_ip = $('input[name=ipaddr]').val();
+	def_auth = $('input[name=auth]').val();
+	def_dev = $('input[name=name]').val();
+	searchQuery();
+	$(window).on('popstate', searchQuery);
+}
+</script>
+</head>
+
+<body>
+<form enctype="multipart/form-data" method="POST" onsubmit="searchPushHistory(1); find(1); return false">
+<table id=fuserform style="display:none">
+<tbody>
+<tr><td>%l10n_str_bssid%</td><td><input name="bssid" type="text" value="" /></td><td colspan=2 style="font-weight: bold">(&nbsp;* - %l10n_find_wildcard%&nbsp;)</td></tr>
+<tr><td>%l10n_str_essid%</td><td><input name="essid" type="text" value="◯" /></td><td colspan=2 style="font-weight: bold">(&nbsp;<button style="width:24px; height:22px" type=button onclick="insertAtCaret('□')">□</button> - %l10n_find_any_char%, <button style="width:24px; height:22px" type=button onclick="insertAtCaret('◯')">◯</button> - %l10n_find_any_str%&nbsp;)</td></tr>
+<tr><td>%l10n_str_wifikey%</td><td><input name="key" type="text" value="◯" /></td></tr>
+<tr><td>%l10n_str_wpspin%</td><td><input name="wps" type="text" value="◯" /></td></tr>
+<input name="page" type="hidden" value="1" />
+<tr><td><input type=submit value="%l10n_btn_find%" /></td><td><label><input type=checkbox name=sens /> %l10n_find_checksens%</label></td><td id=found1></td><td class=coordlock></td></tr>
+</tbody>
+</table>
+</form>
+
+<form enctype="multipart/form-data" method="POST" onsubmit="searchPushHistory(1); find(1); return false">
+<table id=fadminform style="display:none">
+<tbody>
+<tr><td>%l10n_str_comment%</td><td><input name="comment" type="text" value="*" /></td><td>%l10n_str_dev%</td><td><input name="name" type="text" value="◯" /></td><td style="font-weight: bold">(&nbsp;* - %l10n_find_wildcard_info%&nbsp;)</td></tr>
+<tr><td>%l10n_str_ipaddr%</td><td><input name="ipaddr" type="text" value="" /></td><td>%l10n_str_auth%</td><td><input name="auth" type="text" value="◯" /></td><td style="font-weight: bold">(&nbsp;<button style="width:24px; height:22px" type=button onclick="insertAtCaret('□')">□</button> - %l10n_find_any_char%&nbsp;)</td></tr>
+<tr><td>%l10n_str_bssid%</td><td><input name="bssid" type="text" value="" /></td><td>%l10n_str_essid%</td><td><input name="essid" type="text" value="◯" /></td><td style="font-weight: bold">(&nbsp;<button style="width:24px; height:22px" type=button onclick="insertAtCaret('◯')">◯</button> - %l10n_find_any_str%&nbsp;)</td></tr>
+<tr><td>%l10n_str_wifikey%</td><td><input name="key" type="text" value="◯" /></td><td>%l10n_str_wpspin%</td><td><input name="wps" type="text" value="◯" /></td></tr>
+<input name="page" type="hidden" value="1" />
+<tr><td><input type=submit value="%l10n_btn_find%" /></td><td><label><input type=checkbox name=sens /> %l10n_find_checksens%</label></td><td id=found2 colspan=2></td><td class=coordlock></td></tr>
+</tbody>
+</table>
+</form>
+
+<span style="margin-top: 2px; margin-bottom: 4px; display: flex">
+<table class=swp_st id=pages_t>
+</table><span id=page_seeker style="display: none">&nbsp;<input type=number value=1 min=1 max=1 step=1>&nbsp;<button onclick="switchPage(parseInt($('input[type=number]').val()))">%l10n_btn_jump%</button></span>
+</span>
+
+<span style="display: block; width: 100%; overflow-x: auto">
+<table class=st1>
+<tbody id=fhead>
+</tbody>
+<tbody id=fdata>
+</tbody>
+</table>
+</span>
+
+<table class=swp_st id=pages_b style="margin-top: 4px; margin-bottom: 2px">
+</table>
+</body>
