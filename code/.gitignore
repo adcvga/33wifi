@@ -1,12 +1,12 @@
 # Конфиг
-/config.php
+#/config.php
 
 # Загрузки, кроме .htaccess
 /uploads/*
 !/uploads/.htaccess
 
 # Счетчик
-/counter.txt
+#/counter.txt
 
 # Лог отладки
 /Debug.log
