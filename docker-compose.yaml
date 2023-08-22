@@ -16,7 +16,7 @@ services:
       - ./init:/docker-entrypoint-initdb.d
 
   php-cli-update:
-    #    user: "root:root"
+    user: "root:root"
     build:
       dockerfile: ./code/Dockerfile-update
     restart: always
@@ -29,7 +29,7 @@ services:
       - db
 
   php-cli-finalize:
-    #    user: "root:root"
+    user: "root:root"
     build:
       dockerfile: ./code/Dockerfile-update
     restart: always
@@ -42,7 +42,7 @@ services:
       - db
 
   php-cli-geolocate:
-    #    user: "root:root"
+    user: "root:root"
     build:
       dockerfile: ./code/Dockerfile-update
     restart: always
@@ -55,7 +55,7 @@ services:
       - db
 
   php-cli-stats:
-    #    user: "root:root"
+    user: "root:root"
     build:
       dockerfile: ./code/Dockerfile-update
     restart: always
@@ -68,7 +68,7 @@ services:
       - db
 
   php-cli-memory:
-    #    user: "root:root"
+    user: "root:root"
     build:
       dockerfile: ./code/Dockerfile-update
     restart: always
@@ -81,7 +81,7 @@ services:
       - db
 
   php-nginx-site:
-    #    user: "root:root"
+    user: "root:root"
     build:
       dockerfile: ./code/Dockerfile-site
     # run crond as main process of container
